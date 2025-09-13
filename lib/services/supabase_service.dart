@@ -45,10 +45,12 @@ class SupabaseService {
   
   // Profile operations
   static Future<Map<String, dynamic>?> getProfile(String userId) async {
+    print('DEBUG: Getting profile for user ID: $userId');
     try {
+      print('DEBUG: Executing profile query...');
       final response = await client
           .from('profiles')
-          .select('*, patients(*), doctors(*)')
+          .select('*')
           .eq('id', userId)
           .single()
           .timeout(const Duration(seconds: 10));
@@ -59,6 +61,14 @@ class SupabaseService {
       return null;
     } catch (e) {
       print('DEBUG: Failed to fetch profile from server: $e');
+      print('DEBUG: Profile fetch error type: ${e.runtimeType}');
+      if (e is PostgrestException) {
+        print('DEBUG: Profile PostgrestException details:');
+        print('DEBUG: - Code: ${e.code}');
+        print('DEBUG: - Message: ${e.message}');
+        print('DEBUG: - Details: ${e.details}');
+        print('DEBUG: - Hint: ${e.hint}');
+      }
       return null;
     }
   }
@@ -148,16 +158,34 @@ class SupabaseService {
   
   // Chat operations
   static Future<List<Map<String, dynamic>>> getMessages(String conversationId) async {
+    print('DEBUG: Fetching messages for conversation: $conversationId');
+    
+    // Extract user IDs from conversation ID (format: userId_otherUserId)
+    final userIds = conversationId.split('_');
+    if (userIds.length != 2) {
+      print('DEBUG: Invalid conversation ID format');
+      return [];
+    }
+    
+    final userId1 = userIds[0];
+    final userId2 = userIds[1];
+    print('DEBUG: Looking for messages between $userId1 and $userId2');
+    
+    // Query messages between the two users regardless of conversation_id
     final response = await client
         .from('chats')
         .select()
-        .eq('conversation_id', conversationId)
-        .order('created_at');
+        .or('and(sender_id.eq.$userId1,receiver_id.eq.$userId2),and(sender_id.eq.$userId2,receiver_id.eq.$userId1)')
+        .order('created_at', ascending: true);
+    
+    print('DEBUG: Raw messages from DB: $response');
     return List<Map<String, dynamic>>.from(response);
   }
   
   static Future<void> sendMessage(Map<String, dynamic> message) async {
+    print('DEBUG: Sending message to database: $message');
     await client.from('chats').insert(message);
+    print('DEBUG: Message sent successfully');
   }
   
   static Stream<List<Map<String, dynamic>>> subscribeToMessages(String conversationId) {
@@ -165,7 +193,7 @@ class SupabaseService {
         .from('chats')
         .stream(primaryKey: ['id'])
         .eq('conversation_id', conversationId)
-        .order('created_at');
+        .order('created_at', ascending: true);
   }
   
   // AI Assessments
@@ -269,19 +297,46 @@ class SupabaseService {
   }
   
   static Future<Map<String, dynamic>> createPrescription(Map<String, dynamic> data) async {
+    print('DEBUG: Starting prescription creation with data: $data');
+    
     try {
-      final response = await client
-          .from('prescriptions')
-          .insert(data)
-          .select()
-          .single();
-      return response;
+      // Validate required fields
+      final requiredFields = ['patient_id', 'doctor_id', 'content'];
+      for (final field in requiredFields) {
+        if (!data.containsKey(field) || data[field] == null || data[field].toString().trim().isEmpty) {
+          throw Exception('Missing required field: $field');
+        }
+      }
+      
+      print('DEBUG: All required fields present, inserting into database...');
+      print('DEBUG: Supabase client status: ${client.auth.currentUser != null ? "authenticated" : "not authenticated"}');
+      print('DEBUG: Current user: ${client.auth.currentUser?.id}');
+      
+      try {
+        print('DEBUG: Attempting database insertion...');
+        final response = await client
+            .from('prescriptions')
+            .insert(data)
+            .select()
+            .single();
+            
+        print('DEBUG: Database insertion successful: $response');
+        return response;
+      } on PostgrestException catch (postgrestError) {
+        print('DEBUG: PostgrestException during insertion:');
+        print('DEBUG: Error code: ${postgrestError.code}');
+        print('DEBUG: Error message: ${postgrestError.message}');
+        print('DEBUG: Error details: ${postgrestError.details}');
+        print('DEBUG: Error hint: ${postgrestError.hint}');
+        throw postgrestError;
+      } on Exception catch (e) {
+        print('DEBUG: General exception during insertion: $e');
+        throw e;
+      }
     } catch (e) {
-      return {
-        'id': 'demo-${DateTime.now().millisecondsSinceEpoch}',
-        ...data,
-        'created_at': DateTime.now().toIso8601String(),
-      };
+      print('DEBUG: Failed to create prescription: $e');
+      print('DEBUG: Error type: ${e.runtimeType}');
+      throw e;
     }
   }
   
@@ -413,4 +468,66 @@ class SupabaseService {
   static Future<void> deleteFile(String bucket, String path) async {
     await client.storage.from(bucket).remove([path]);
   }
+
+  // User status management
+  static Future<void> updateUserStatus(String userId, bool isOnline) async {
+    try {
+      await client
+          .from('profiles')
+          .update({'status': isOnline})
+          .eq('id', userId);
+      print('DEBUG: Updated user status to ${isOnline ? "online" : "offline"} for user: $userId');
+    } catch (e) {
+      print('DEBUG: Failed to update user status: $e');
+    }
+  }
+
+  static Future<void> setUserOnline(String userId) async {
+    await updateUserStatus(userId, true);
+  }
+
+  static Future<void> setUserOffline(String userId) async {
+    await updateUserStatus(userId, false);
+  }
+
+
+
+  // Video consultation methods
+  static Future<Map<String, dynamic>?> getActiveConsultation(String userId) async {
+    try {
+      final response = await client
+          .from('video_consultations')
+          .select('*')
+          .or('patient_id.eq.$userId,doctor_id.eq.$userId')
+          .eq('status', 'active')
+          .maybeSingle();
+      
+      return response;
+    } catch (e) {
+      print('DEBUG: Failed to get active consultation: $e');
+      return null;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getConsultationHistory(String userId, String role) async {
+    try {
+      final column = role == 'patient' ? 'patient_id' : 'doctor_id';
+      final response = await client
+          .from('video_consultations')
+          .select('*')
+          .eq(column, userId)
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
+      
+      return List<Map<String, dynamic>>.from(response);
+    } on TimeoutException {
+      print('DEBUG: Consultation history fetch timeout');
+      throw Exception('Network timeout');
+    } catch (e) {
+      print('DEBUG: Failed to fetch consultation history: $e');
+      throw Exception('Failed to fetch consultation history');
+    }
+  }
+
+
 }

@@ -178,12 +178,12 @@ class _AiAnalysisTabState extends State<AiAnalysisTab> {
                   Container(
                     padding: EdgeInsets.all(screenWidth * 0.02),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                      color: const Color(0xFF00B4D8).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(screenWidth * 0.02),
                     ),
                     child: Icon(
                       Icons.psychology,
-                      color: const Color(0xFF2563EB),
+                      color: const Color(0xFF00B4D8),
                       size: screenWidth * 0.05,
                     ),
                   ),
@@ -257,14 +257,14 @@ class _AiAnalysisTabState extends State<AiAnalysisTab> {
                   Icon(
                     Icons.visibility,
                     size: screenWidth * 0.04,
-                    color: const Color(0xFF2563EB),
+                    color: const Color(0xFF00B4D8),
                   ),
                   SizedBox(width: screenWidth * 0.02),
                   Text(
                     'View Details',
                     style: TextStyle(
                       fontSize: screenWidth * 0.035,
-                      color: const Color(0xFF2563EB),
+                      color: const Color(0xFF00B4D8),
                       fontWeight: FontWeight.w500,
                     ),
                   ),

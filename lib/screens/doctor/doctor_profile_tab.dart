@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
+import '../../services/local_storage_service.dart';
 import '../../utils/app_router.dart';
 
 class DoctorProfileTab extends StatefulWidget {
@@ -93,6 +94,7 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
     final screenWidth = MediaQuery.of(context).size.width;
     
     return Container(
+      width: double.infinity,
       padding: EdgeInsets.all(screenWidth * 0.05),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -109,7 +111,7 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
         children: [
           CircleAvatar(
             radius: screenWidth * 0.12,
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: const Color(0xFF00B4D8),
             child: Icon(
               Icons.medical_services,
               size: screenWidth * 0.12,
@@ -194,7 +196,7 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
                 icon: Icon(
                   _isEditing ? Icons.close : Icons.edit,
                   size: screenWidth * 0.05,
-                  color: const Color(0xFF2563EB),
+                  color: const Color(0xFF00B4D8),
                 ),
               ),
             ],
@@ -473,7 +475,7 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
       child: ListTile(
         leading: Icon(
           icon,
-          color: const Color(0xFF2563EB),
+          color: const Color(0xFF00B4D8),
           size: screenWidth * 0.05,
         ),
         title: Text(
@@ -564,7 +566,9 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
 
   Future<void> _signOut() async {
     try {
+      // Doctors control their own status, don't auto-set offline
       await SupabaseService.signOut();
+      await LocalStorageService.logout();
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {

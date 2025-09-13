@@ -147,7 +147,7 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             CircleAvatar(
               radius: screenWidth * 0.04,
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: const Color(0xFF00B4D8),
               child: Icon(
                 Icons.person,
                 color: Colors.white,
@@ -170,7 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     'Online',
                     style: TextStyle(
                       fontSize: screenWidth * 0.03,
-                      color: Colors.green,
+                      color: const Color(0xFF0077B6),
                     ),
                   ),
                 ],
@@ -237,7 +237,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!isMe) ...[
             CircleAvatar(
               radius: screenWidth * 0.04,
-              backgroundColor: const Color(0xFF2563EB),
+              backgroundColor: const Color(0xFF00B4D8),
               child: Icon(
                 Icons.person,
                 color: Colors.white,
@@ -250,7 +250,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Container(
               padding: EdgeInsets.all(screenWidth * 0.03),
               decoration: BoxDecoration(
-                color: isMe ? const Color(0xFF2563EB) : Colors.grey[200],
+                color: isMe ? const Color(0xFF00B4D8) : Colors.grey[200],
                 borderRadius: BorderRadius.circular(screenWidth * 0.04),
               ),
               child: Column(
@@ -341,7 +341,7 @@ class _ChatScreenState extends State<ChatScreen> {
           SizedBox(width: screenWidth * 0.02),
           Container(
             decoration: const BoxDecoration(
-              color: Color(0xFF2563EB),
+              color: Color(0xFF00B4D8),
               shape: BoxShape.circle,
             ),
             child: IconButton(

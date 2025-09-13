@@ -147,7 +147,7 @@ class _ProfileTabState extends State<ProfileTab> {
         children: [
           CircleAvatar(
             radius: screenWidth * 0.12,
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: const Color(0xFF00B4D8),
             child: Icon(
               Icons.person,
               size: screenWidth * 0.12,
@@ -211,7 +211,7 @@ class _ProfileTabState extends State<ProfileTab> {
                 icon: Icon(
                   _isEditing ? Icons.close : Icons.edit,
                   size: screenWidth * 0.05,
-                  color: const Color(0xFF2563EB),
+                  color: const Color(0xFF00B4D8),
                 ),
               ),
             ],
@@ -480,7 +480,7 @@ class _ProfileTabState extends State<ProfileTab> {
       child: ListTile(
         leading: Icon(
           icon,
-          color: const Color(0xFF2563EB),
+          color: const Color(0xFF00B4D8),
           size: screenWidth * 0.05,
         ),
         title: Text(
@@ -582,6 +582,12 @@ class _ProfileTabState extends State<ProfileTab> {
     setState(() => _isSigningOut = true);
     
     try {
+      // Set patient offline before signing out (doctors control their own status)
+      final user = SupabaseService.currentUser;
+      if (user != null && _profile?['role'] == 'patient') {
+        await SupabaseService.setUserOffline(user.id);
+      }
+      
       await SupabaseService.signOut();
       await LocalStorageService.logout(); // Only clear user session, keep cached data
       if (mounted) {

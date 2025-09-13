@@ -151,7 +151,7 @@ class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
             child: ElevatedButton(
               onPressed: _isLoading ? null : _analyzeSymptoms,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
+                backgroundColor: const Color(0xFF00B4D8),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(screenWidth * 0.02),

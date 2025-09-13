@@ -3,6 +3,8 @@ import '../services/ai_booking_service.dart';
 import '../services/supabase_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/offline_sync_service.dart';
+import '../services/video_consultation_service.dart';
+import 'common/video_consultation_screen.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
   const BookAppointmentScreen({super.key});
@@ -64,25 +66,38 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     }
 
     try {
+      setState(() => _isLoading = true);
+      
       // Create video consultation session
-      final consultationData = {
-        'patient_id': LocalStorageService.getCurrentUserId(),
-        'doctor_id': _selectedDoctorId,
-        'symptoms': _symptomsController.text,
-        'status': 'active',
-        'started_at': DateTime.now().toIso8601String(),
-      };
+      final consultation = await VideoConsultationService.createConsultation(
+        patientId: LocalStorageService.getCurrentUserId()!,
+        doctorId: _selectedDoctorId!,
+        symptoms: _symptomsController.text,
+      );
+
+      // Add doctor profile to consultation data for display
+      consultation['profiles'] = selectedDoctor;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Starting video consultation with Dr. ${selectedDoctor['full_name']}')),
       );
       
-      // Navigate to video call screen (placeholder)
-      Navigator.pop(context);
+      // Navigate to video consultation screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoConsultationScreen(
+            consultation: consultation,
+            userRole: 'patient',
+          ),
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error starting consultation: $e')),
       );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -157,7 +172,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
+                  color: const Color(0xFF00B4D8).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -204,7 +219,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 if (_getDoctorVerified(doctor))
-                                  const Icon(Icons.verified, color: Colors.blue, size: 16),
+                                  const Icon(Icons.verified, color: Color(0xFF00B4D8), size: 16),
                               ],
                             ),
                           ],

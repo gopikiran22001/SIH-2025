@@ -36,35 +36,61 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   }
 
   Future<void> _initAgora() async {
-    await _videoService.initialize();
-    
-    _videoService.setEventHandler(
-      RtcEngineEventHandler(
-        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
-          setState(() {
-            _localUserJoined = true;
-          });
-        },
-        onUserJoined: (RtcConnection connection, int uid, int elapsed) {
-          setState(() {
-            _remoteUid = uid;
-          });
-        },
-        onUserOffline: (RtcConnection connection, int uid, UserOfflineReasonType reason) {
-          setState(() {
-            _remoteUid = null;
-          });
-        },
-        onLeaveChannel: (RtcConnection connection, RtcStats stats) {
-          setState(() {
-            _localUserJoined = false;
-            _remoteUid = null;
-          });
-        },
-      ),
-    );
+    try {
+      await _videoService.initialize();
+      
+      _videoService.setEventHandler(
+        RtcEngineEventHandler(
+          onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+            if (mounted) {
+              setState(() {
+                _localUserJoined = true;
+              });
+            }
+          },
+          onUserJoined: (RtcConnection connection, int uid, int elapsed) {
+            if (mounted) {
+              setState(() {
+                _remoteUid = uid;
+              });
+            }
+          },
+          onUserOffline: (RtcConnection connection, int uid, UserOfflineReasonType reason) {
+            if (mounted) {
+              setState(() {
+                _remoteUid = null;
+              });
+            }
+          },
+          onLeaveChannel: (RtcConnection connection, RtcStats stats) {
+            if (mounted) {
+              setState(() {
+                _localUserJoined = false;
+                _remoteUid = null;
+              });
+            }
+          },
+          onError: (ErrorCodeType err, String msg) {
+            print('DEBUG: Agora error: $err - $msg');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Video call error: $msg')),
+              );
+            }
+          },
+        ),
+      );
 
-    await _videoService.joinChannel(widget.token, widget.channelName, widget.uid);
+      await _videoService.joinChannel(widget.token, widget.channelName, widget.uid);
+    } catch (e) {
+      print('DEBUG: Failed to initialize Agora: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to start video call: $e')),
+        );
+        Navigator.pop(context);
+      }
+    }
   }
 
   @override

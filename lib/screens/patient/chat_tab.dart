@@ -93,9 +93,9 @@ class _ChatTabState extends State<ChatTab> {
       child: Column(
         children: [
           TabBar(
-            labelColor: const Color(0xFF2563EB),
+            labelColor: const Color(0xFF00B4D8),
             unselectedLabelColor: Colors.grey[600],
-            indicatorColor: const Color(0xFF2563EB),
+            indicatorColor: const Color(0xFF00B4D8),
             tabs: const [
               Tab(text: 'Conversations'),
               Tab(text: 'Doctors'),
@@ -190,7 +190,7 @@ class _ChatTabState extends State<ChatTab> {
       child: ListTile(
         leading: CircleAvatar(
           radius: screenWidth * 0.06,
-          backgroundColor: const Color(0xFF2563EB),
+          backgroundColor: const Color(0xFF00B4D8),
           child: Icon(
             Icons.person,
             color: Colors.white,
@@ -222,7 +222,16 @@ class _ChatTabState extends State<ChatTab> {
   }
 
   Widget _buildDoctorCard(Map<String, dynamic> doctor, double screenWidth) {
-    final doctorData = doctor['doctors']?.isNotEmpty == true ? doctor['doctors'][0] : {};
+    final doctorsData = doctor['doctors'];
+    final doctorData = <String, dynamic>{};
+    
+    if (doctorsData != null) {
+      if (doctorsData is List && doctorsData.isNotEmpty) {
+        doctorData.addAll(doctorsData[0] ?? {});
+      } else if (doctorsData is Map<String, dynamic>) {
+        doctorData.addAll(doctorsData);
+      }
+    }
     
     return Container(
       margin: EdgeInsets.only(bottom: screenWidth * 0.03),
@@ -245,7 +254,7 @@ class _ChatTabState extends State<ChatTab> {
             children: [
               CircleAvatar(
                 radius: screenWidth * 0.06,
-                backgroundColor: const Color(0xFF2563EB),
+                backgroundColor: const Color(0xFF00B4D8),
                 child: Icon(
                   Icons.person,
                   color: Colors.white,
@@ -277,7 +286,7 @@ class _ChatTabState extends State<ChatTab> {
               if (doctorData['verified'] == true)
                 Icon(
                   Icons.verified,
-                  color: Colors.green,
+                  color: const Color(0xFF0077B6),
                   size: screenWidth * 0.04,
                 ),
             ],
@@ -313,7 +322,7 @@ class _ChatTabState extends State<ChatTab> {
                 style: TextStyle(fontSize: screenWidth * 0.035),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
+                backgroundColor: const Color(0xFF00B4D8),
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(vertical: screenWidth * 0.025),
               ),

@@ -36,7 +36,7 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
             _buildNavigationCard(
               'Past Appointments',
               Icons.medical_services,
-              const Color(0xFF2563EB),
+              const Color(0xFF00B4D8),
               () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AppointmentsHistoryScreen()),
@@ -46,7 +46,7 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
             _buildNavigationCard(
               'Prescriptions',
               Icons.medication,
-              const Color(0xFFEF4444),
+              const Color(0xFF0077B6),
               () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const PrescriptionsScreen()),
@@ -56,7 +56,7 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
             _buildNavigationCard(
               'AI Health Assessments',
               Icons.psychology,
-              const Color(0xFF10B981),
+              const Color(0xFF023E8A),
               () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AiAssessmentsScreen()),

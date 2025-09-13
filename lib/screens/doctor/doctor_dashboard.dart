@@ -4,6 +4,7 @@ import '../../utils/app_router.dart';
 import 'doctor_appointments_tab.dart';
 import 'doctor_patients_tab.dart';
 import 'doctor_profile_tab.dart';
+import 'doctor_consultations_tab.dart';
 
 class DoctorDashboard extends StatefulWidget {
   const DoctorDashboard({super.key});
@@ -69,14 +70,6 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             ),
             onPressed: () {},
           ),
-          IconButton(
-            icon: Icon(
-              Icons.logout,
-              color: const Color(0xFF1A1A1A),
-              size: screenWidth * 0.06,
-            ),
-            onPressed: _signOut,
-          ),
         ],
       ),
       body: PopScope(
@@ -90,6 +83,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           index: _currentIndex,
           children: [
             _buildHomeTab(),
+            _buildConsultationsTab(),
             _buildAppointmentsTab(),
             _buildPatientsTab(),
             _buildProfileTab(),
@@ -100,13 +94,14 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF2563EB),
+        selectedItemColor: const Color(0xFF00B4D8),
         unselectedItemColor: const Color(0xFF64748B),
         selectedFontSize: screenWidth * 0.03,
         unselectedFontSize: screenWidth * 0.025,
         iconSize: screenWidth * 0.06,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
+          BottomNavigationBarItem(icon: Icon(Icons.video_call), label: 'Consultations'),
           BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Appointments'),
           BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Patients'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
@@ -145,7 +140,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             'Total Appointments',
             _stats['total_appointments']?.toString() ?? '0',
             Icons.calendar_today,
-            const Color(0xFF2563EB),
+            const Color(0xFF00B4D8),
           ),
         ),
         SizedBox(width: screenWidth * 0.03),
@@ -154,7 +149,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             'Completed',
             _stats['completed_appointments']?.toString() ?? '0',
             Icons.check_circle,
-            const Color(0xFF059669),
+            const Color(0xFF0077B6),
           ),
         ),
       ],
@@ -240,16 +235,16 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 child: _buildActionCard(
                   'View Patients',
                   Icons.people,
-                  const Color(0xFF2563EB),
-                  () => setState(() => _currentIndex = 2),
+                  const Color(0xFF00B4D8),
+                  () => setState(() => _currentIndex = 3),
                 ),
               ),
               SizedBox(width: screenWidth * 0.03),
               Expanded(
                 child: _buildActionCard(
-                  'Appointments',
-                  Icons.calendar_today,
-                  const Color(0xFF059669),
+                  'Consultations',
+                  Icons.video_call,
+                  const Color(0xFF0077B6),
                   () => setState(() => _currentIndex = 1),
                 ),
               ),
@@ -262,7 +257,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 child: _buildActionCard(
                   'Create Prescription',
                   Icons.receipt,
-                  const Color(0xFF7C3AED),
+                  const Color(0xFF023E8A),
                   () => _showCreatePrescription(),
                 ),
               ),
@@ -271,7 +266,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 child: _buildActionCard(
                   'Chat Messages',
                   Icons.chat,
-                  const Color(0xFFDC2626),
+                  const Color(0xFF0096C7),
                   () => AppRouter.go('/chat-list'),
                 ),
               ),
@@ -347,10 +342,13 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 ),
               ),
               TextButton(
-                onPressed: () => setState(() => _currentIndex = 1),
+                onPressed: () => setState(() => _currentIndex = 2),
                 child: Text(
                   'View All',
-                  style: TextStyle(fontSize: screenWidth * 0.035),
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    color: const Color(0xFF00B4D8),
+                  ),
                 ),
               ),
             ],
@@ -366,6 +364,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         ],
       ),
     );
+  }
+
+  Widget _buildConsultationsTab() {
+    return const DoctorConsultationsTab();
   }
 
   Widget _buildAppointmentsTab() {

@@ -8,6 +8,7 @@ import 'appointments_tab.dart';
 import 'ai_analysis_tab.dart';
 import 'chat_tab.dart';
 import 'profile_tab.dart';
+import 'consultation_history_screen.dart';
 
 class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
@@ -135,7 +136,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF2563EB),
+        selectedItemColor: const Color(0xFF00B4D8),
         unselectedItemColor: const Color(0xFF64748B),
         selectedFontSize: screenWidth * 0.03,
         unselectedFontSize: screenWidth * 0.025,
@@ -205,9 +206,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
             children: [
               Expanded(
                 child: _buildActionCard(
-                  'Book Appointment',
-                  Icons.calendar_today,
-                  const Color(0xFF2563EB),
+                  'Video Consultation',
+                  Icons.video_call,
+                  const Color(0xFF00B4D8),
                   () => AppRouter.go('/book-appointment'),
                 ),
               ),
@@ -216,7 +217,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 child: _buildActionCard(
                   'AI Symptom Check',
                   Icons.psychology,
-                  const Color(0xFF059669),
+                  const Color(0xFF0077B6),
                   () => AppRouter.go('/symptom-checker'),
                 ),
               ),
@@ -227,19 +228,24 @@ class _PatientDashboardState extends State<PatientDashboard> {
             children: [
               Expanded(
                 child: _buildActionCard(
-                  'Chat with Doctor',
-                  Icons.chat,
-                  const Color(0xFF7C3AED),
-                  () => AppRouter.go('/chat-list'),
+                  'Consultation History',
+                  Icons.history,
+                  const Color(0xFF023E8A),
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ConsultationHistoryScreen(),
+                    ),
+                  ),
                 ),
               ),
               SizedBox(width: screenWidth * 0.03),
               Expanded(
                 child: _buildActionCard(
-                  'Upload Documents',
-                  Icons.upload_file,
-                  const Color(0xFFDC2626),
-                  () => AppRouter.go('/documents'),
+                  'Chat with Doctor',
+                  Icons.chat,
+                  const Color(0xFF0096C7),
+                  () => AppRouter.go('/chat-list'),
                 ),
               ),
             ],
@@ -361,7 +367,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
             width: screenWidth * 0.12,
             height: screenWidth * 0.12,
             decoration: const BoxDecoration(
-              color: Color(0xFF2563EB),
+              color: Color(0xFF00B4D8),
               shape: BoxShape.circle,
             ),
             child: Icon(

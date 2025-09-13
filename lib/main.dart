@@ -1,21 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'services/supabase_service.dart';
 import 'services/local_storage_service.dart';
 import 'services/offline_sync_service.dart';
+import 'services/notification_service.dart';
 import 'utils/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize Firebase
+  await Firebase.initializeApp();
+  
   // Initialize services
   await LocalStorageService.initialize();
   await SupabaseService.initialize();
+  await NotificationService.initialize();
   
   // Initialize and sync offline service
   final syncService = OfflineSyncService();
   await syncService.init();
   
-  runApp(const MeditechApp());
+  // Save FCM token after initialization
+  await NotificationService.saveTokenToDatabase();
+  
+  runApp(const MedVitaApp());
 }
 
 class AuthChecker extends StatefulWidget {
@@ -104,30 +113,131 @@ class _AuthCheckerState extends State<AuthChecker> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF00B4D8),
+              Color(0xFF0077B6),
+              Color(0xFF023E8A),
+            ],
+          ),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'MedVita',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class MeditechApp extends StatelessWidget {
-  const MeditechApp({super.key});
+class MedVitaApp extends StatefulWidget {
+  const MedVitaApp({super.key});
+
+  @override
+  State<MedVitaApp> createState() => _MedVitaAppState();
+}
+
+class _MedVitaAppState extends State<MedVitaApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _setUserOnline();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _setUserOffline();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _setUserOnline();
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        _setUserOffline();
+        break;
+      case AppLifecycleState.hidden:
+        _setUserOffline();
+        break;
+    }
+  }
+
+  void _setUserOnline() {
+    final user = SupabaseService.currentUser;
+    if (user != null) {
+      _updatePatientStatus(user.id, true);
+    }
+  }
+
+  void _setUserOffline() {
+    final user = SupabaseService.currentUser;
+    if (user != null) {
+      _updatePatientStatus(user.id, false);
+    }
+  }
+
+  void _updatePatientStatus(String userId, bool isOnline) async {
+    try {
+      final profile = await SupabaseService.getProfile(userId);
+      if (profile != null && profile['role'] == 'patient') {
+        SupabaseService.updateUserStatus(userId, isOnline);
+      }
+    } catch (e) {
+      print('DEBUG: Failed to check user role for status update: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Meditech',
+      title: 'MedVita',
       debugShowCheckedModeBanner: false,
       navigatorKey: AppRouter.navigatorKey,
       onGenerateRoute: AppRouter.generateRoute,
       home: const AuthChecker(),
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        primaryColor: const Color(0xFF2563EB),
+        primaryColor: const Color(0xFF00B4D8),
         scaffoldBackgroundColor: const Color(0xFFF8FAFC),
         fontFamily: 'Inter',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF00B4D8),
+          primary: const Color(0xFF00B4D8),
+          secondary: const Color(0xFF0077B6),
+          tertiary: const Color(0xFF023E8A),
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
           foregroundColor: Color(0xFF1A1A1A),
@@ -136,40 +246,45 @@ class MeditechApp extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563EB),
+            backgroundColor: const Color(0xFF00B4D8),
             foregroundColor: Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFF00B4D8),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFF2563EB)),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF00B4D8), width: 2),
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: const Color(0xFFF9FAFB),
         ),
         cardTheme: const CardThemeData(
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderRadius: BorderRadius.all(Radius.circular(16)),
           ),
           color: Colors.white,
         ),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: Colors.white,
-          selectedItemColor: Color(0xFF2563EB),
+          selectedItemColor: Color(0xFF00B4D8),
           unselectedItemColor: Color(0xFF64748B),
           type: BottomNavigationBarType.fixed,
           elevation: 8,
