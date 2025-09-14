@@ -10,16 +10,47 @@ import '../screens/book_appointment_screen.dart';
 import '../screens/chat_list_screen.dart';
 import '../screens/profile_screen.dart';
 import '../widgets/app_bottom_navigation.dart';
+import '../services/supabase_service.dart';
+import '../services/local_storage_service.dart';
 
 
 class AppRouter {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   
+  static bool _isAuthenticated() {
+    final hasValidSession = SupabaseService.hasValidSession;
+    final localUser = LocalStorageService.getCurrentUser();
+    return hasValidSession && localUser != null;
+  }
+  
+  static String _getAuthenticatedUserDashboard() {
+    final localUser = LocalStorageService.getCurrentUser();
+    if (localUser != null) {
+      final role = localUser['role'];
+      if (role == 'patient') {
+        return '/patient-dashboard';
+      } else if (role == 'doctor') {
+        return '/doctor-dashboard';
+      }
+    }
+    return '/login';
+  }
+  
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case '/login':
+        if (_isAuthenticated()) {
+          return MaterialPageRoute(
+            builder: (_) => _RedirectScreen(_getAuthenticatedUserDashboard()),
+          );
+        }
         return MaterialPageRoute(builder: (_) => const LoginScreen());
       case '/register':
+        if (_isAuthenticated()) {
+          return MaterialPageRoute(
+            builder: (_) => _RedirectScreen(_getAuthenticatedUserDashboard()),
+          );
+        }
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
       case '/patient-dashboard':
         return MaterialPageRoute(builder: (_) => const PatientDashboard());
@@ -174,6 +205,34 @@ class AppointmentDetailsScreen extends StatelessWidget {
       ),
       body: Center(child: Text('Appointment Details for $appointmentId - Coming Soon')),
       bottomNavigationBar: const AppBottomNavigation(currentRoute: '/appointment-details'),
+    );
+  }
+}
+
+class _RedirectScreen extends StatefulWidget {
+  final String targetRoute;
+  
+  const _RedirectScreen(this.targetRoute);
+
+  @override
+  State<_RedirectScreen> createState() => _RedirectScreenState();
+}
+
+class _RedirectScreenState extends State<_RedirectScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppRouter.replace(widget.targetRoute);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 }
