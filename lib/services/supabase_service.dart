@@ -13,6 +13,18 @@ class SupabaseService {
       url: supabaseUrl,
       anonKey: supabaseAnonKey,
     );
+    await _createVideoSignalingTable();
+  }
+
+  static Future<void> _createVideoSignalingTable() async {
+    try {
+      // Check if table exists by trying to select from it
+      await client.from('video_signaling').select('id').limit(1);
+    } catch (e) {
+      // Table doesn't exist, but we can't create it via client
+      // This would need to be done via Supabase dashboard or SQL
+      print('DEBUG: video_signaling table may not exist - create it in Supabase dashboard');
+    }
   }
   
   // Auth methods
@@ -519,7 +531,31 @@ class SupabaseService {
           .order('created_at', ascending: false)
           .timeout(const Duration(seconds: 10));
       
-      return List<Map<String, dynamic>>.from(response);
+      final consultations = List<Map<String, dynamic>>.from(response);
+      
+      // Fetch patient names for doctor consultations
+      if (role == 'doctor') {
+        print('DEBUG: Fetching patient names for ${consultations.length} consultations');
+        for (final consultation in consultations) {
+          final patientId = consultation['patient_id'];
+          print('DEBUG: Fetching name for patient ID: $patientId');
+          try {
+            final patientProfile = await client
+                .from('profiles')
+                .select('full_name')
+                .eq('id', patientId)
+                .single();
+            final patientName = patientProfile['full_name'] ?? 'Unknown Patient';
+            consultation['patient_name'] = patientName;
+            print('DEBUG: Found patient name: $patientName');
+          } catch (e) {
+            print('DEBUG: Failed to fetch patient name for $patientId: $e');
+            consultation['patient_name'] = 'Unknown Patient';
+          }
+        }
+      }
+      
+      return consultations;
     } on TimeoutException {
       print('DEBUG: Consultation history fetch timeout');
       throw Exception('Network timeout');

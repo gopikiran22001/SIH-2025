@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+
 import 'services/supabase_service.dart';
 import 'services/local_storage_service.dart';
 import 'services/offline_sync_service.dart';
 import 'services/notification_service.dart';
+import 'services/hms_consultation_service.dart';
 import 'utils/app_router.dart';
 
 void main() async {
@@ -12,10 +14,12 @@ void main() async {
   // Initialize Firebase
   await Firebase.initializeApp();
   
+
   // Initialize services
   await LocalStorageService.initialize();
   await SupabaseService.initialize();
   await NotificationService.initialize();
+  await HMSConsultationService.initialize();
   
   // Initialize and sync offline service
   final syncService = OfflineSyncService();

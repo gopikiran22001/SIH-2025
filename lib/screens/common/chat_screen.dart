@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
+import '../../services/hms_consultation_service.dart';
 import '../../models/chat.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -411,29 +412,42 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _startVideoCall() {
+  void _startVideoCall() async {
     try {
-      // For now, show coming soon message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Video call feature coming soon')),
+      final currentUser = LocalStorageService.getCurrentUser();
+      if (currentUser == null) {
+        throw Exception('User not logged in');
+      }
+      
+      final isDoctor = currentUser['role'] == 'doctor';
+      final patientId = isDoctor ? widget.otherUserId : currentUser['id'];
+      final doctorId = isDoctor ? currentUser['id'] : widget.otherUserId;
+      
+      // Create video consultation
+      final consultation = await HMSConsultationService.createVideoConsultation(
+        patientId: patientId,
+        doctorId: doctorId,
+        symptoms: 'Chat consultation request',
       );
       
-      // TODO: Implement actual video call
-      // Navigator.push(
-      //   context,
-      //   MaterialPageRoute(
-      //     builder: (context) => VideoCallScreen(
-      //       channelName: 'channel_${widget.conversationId}',
-      //       token: '', // Generate token from server
-      //       uid: 0, // Generate unique ID
-      //       otherUserName: widget.otherUserName,
-      //     ),
-      //   ),
-      // );
+      if (consultation != null) {
+        // Navigate to WebRTC consultation
+        Navigator.pushNamed(
+          context,
+          '/video-consultation/${consultation['id']}',
+          arguments: {
+            'consultationId': consultation['id'],
+            'patientId': patientId,
+            'doctorId': doctorId,
+            'patientName': isDoctor ? widget.otherUserName : currentUser['full_name'] ?? 'Patient',
+            'doctorName': isDoctor ? currentUser['full_name'] ?? 'Doctor' : widget.otherUserName,
+          },
+        );
+      }
     } catch (e) {
-      print('DEBUG: Video call error: $e');
+      print('DEBUG: Video consultation error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Video call failed: $e')),
+        SnackBar(content: Text('Failed to start video consultation: $e')),
       );
     }
   }

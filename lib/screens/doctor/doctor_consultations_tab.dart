@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/video_consultation_service.dart';
+import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
-import '../common/video_consultation_screen.dart';
 
 class DoctorConsultationsTab extends StatefulWidget {
   const DoctorConsultationsTab({super.key});
@@ -25,7 +24,7 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
       final userId = LocalStorageService.getCurrentUserId();
       if (userId == null) return;
 
-      final consultations = await VideoConsultationService.getConsultations(userId, 'doctor');
+      final consultations = await SupabaseService.getConsultationHistory(userId, 'doctor');
       
       // Check for new pending consultations and show notification
       final pendingCount = consultations.where((c) => c['status'] == 'pending').length;
@@ -55,19 +54,31 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
 
   Future<void> _joinConsultation(Map<String, dynamic> consultation) async {
     try {
-      // Validate consultation data
-      if (consultation['channel_name'] == null || consultation['channel_name'].toString().isEmpty) {
-        throw Exception('Invalid consultation data: missing channel name');
-      }
+      final currentUser = LocalStorageService.getCurrentUser();
+      if (currentUser == null) return;
       
-      Navigator.push(
+      // Fetch full consultation data including tokens
+      final fullConsultation = await SupabaseService.client
+          .from('video_consultations')
+          .select('*')
+          .eq('id', consultation['id'])
+          .single();
+      
+      print('DEBUG: Full consultation data: $fullConsultation');
+      print('DEBUG: Doctor token: ${fullConsultation['doctor_token']}');
+      
+      Navigator.pushNamed(
         context,
-        MaterialPageRoute(
-          builder: (context) => VideoConsultationScreen(
-            consultation: consultation,
-            userRole: 'doctor',
-          ),
-        ),
+        '/video-consultation/${consultation['id']}',
+        arguments: {
+          'consultationId': consultation['id'],
+          'patientId': consultation['patient_id'],
+          'doctorId': consultation['doctor_id'],
+          'patientName': consultation['patient_name'] ?? 'Patient',
+          'doctorName': currentUser['full_name'] ?? 'Doctor',
+          'roomId': fullConsultation['channel_name'],
+          'authToken': fullConsultation['doctor_token'],
+        },
       );
     } catch (e) {
       print('DEBUG: Failed to join consultation: $e');

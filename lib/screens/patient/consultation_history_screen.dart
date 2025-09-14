@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/video_consultation_service.dart';
+import '../../services/supabase_service.dart' as supabase_service;
 import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
 
@@ -27,7 +27,7 @@ class _ConsultationHistoryScreenState extends State<ConsultationHistoryScreen> {
       final userId = LocalStorageService.getCurrentUserId();
       if (userId == null) return;
 
-      final consultations = await VideoConsultationService.getConsultations(userId, 'patient');
+      final consultations = await supabase_service.SupabaseService.getConsultationHistory(userId, 'patient');
       final prescriptions = await SupabaseService.getPrescriptions(userId);
 
       setState(() {

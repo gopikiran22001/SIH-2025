@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/ai_booking_service.dart';
-import '../services/supabase_service.dart';
 import '../services/local_storage_service.dart';
-import '../services/offline_sync_service.dart';
-import '../services/video_consultation_service.dart';
-import 'common/video_consultation_screen.dart';
+import '../services/hms_consultation_service.dart';
+import 'common/hms_video_call_screen.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
   const BookAppointmentScreen({super.key});
@@ -69,29 +67,40 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       setState(() => _isLoading = true);
       
       // Create video consultation session
-      final consultation = await VideoConsultationService.createConsultation(
+      final consultation = await HMSConsultationService.createVideoConsultation(
         patientId: LocalStorageService.getCurrentUserId()!,
         doctorId: _selectedDoctorId!,
-        symptoms: _symptomsController.text,
+        symptoms: _symptomsController.text.trim(),
       );
 
-      // Add doctor profile to consultation data for display
-      consultation['profiles'] = selectedDoctor;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Starting video consultation with Dr. ${selectedDoctor['full_name']}')),
-      );
-      
-      // Navigate to video consultation screen
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => VideoConsultationScreen(
-            consultation: consultation,
-            userRole: 'patient',
+      if (consultation != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Starting video consultation with Dr. ${selectedDoctor['full_name']}')),
+        );
+        
+        // Debug the consultation data
+        print('DEBUG: Consultation data: $consultation');
+        print('DEBUG: Patient token from consultation: ${consultation['patient_token']}');
+        print('DEBUG: Doctor token from consultation: ${consultation['doctor_token']}');
+        
+        // Navigate to HMS video consultation screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HMSVideoCallScreen(
+              consultationId: consultation['id'],
+              patientId: consultation['patient_id'],
+              doctorId: consultation['doctor_id'],
+              patientName: LocalStorageService.getCurrentUser()?['full_name'] ?? 'Patient',
+              doctorName: selectedDoctor['full_name'] ?? 'Doctor',
+              roomId: consultation['channel_name'],
+              authToken: consultation['patient_token'],
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        throw Exception('Failed to create consultation');
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error starting consultation: $e')),

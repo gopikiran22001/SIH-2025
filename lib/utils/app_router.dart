@@ -4,11 +4,11 @@ import '../screens/auth/register_screen.dart';
 import '../screens/patient/patient_dashboard.dart';
 import '../screens/patient/symptom_checker_screen.dart';
 import '../screens/common/chat_screen.dart';
-import '../screens/common/video_call_screen.dart';
+import '../screens/common/hms_video_call_screen.dart';
 import '../screens/doctor/doctor_dashboard.dart';
 import '../screens/book_appointment_screen.dart';
 import '../screens/chat_list_screen.dart';
-import '../services/supabase_service.dart';
+
 
 class AppRouter {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -44,15 +44,18 @@ class AppRouter {
             );
           }
         }
-        if (settings.name?.startsWith('/video-call/') == true) {
-          final parts = settings.name!.split('/');
-          if (parts.length >= 6) {
+        if (settings.name?.startsWith('/video-consultation/') == true) {
+          final args = settings.arguments as Map<String, dynamic>?;
+          if (args != null) {
             return MaterialPageRoute(
-              builder: (_) => VideoCallScreen(
-                channelName: parts[2],
-                token: parts[3],
-                uid: int.parse(parts[4]),
-                otherUserName: parts[5],
+              builder: (_) => HMSVideoCallScreen(
+                consultationId: args['consultationId'],
+                patientId: args['patientId'],
+                doctorId: args['doctorId'],
+                patientName: args['patientName'],
+                doctorName: args['doctorName'],
+                roomId: args['roomId'] ?? args['consultationId'],
+                authToken: args['authToken'] ?? 'temp_token',
               ),
             );
           }

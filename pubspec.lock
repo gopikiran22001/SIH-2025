@@ -22,14 +22,6 @@ packages:
     description: dart
     source: sdk
     version: "0.3.3"
-  agora_rtc_engine:
-    dependency: "direct main"
-    description:
-      name: agora_rtc_engine
-      sha256: f3b2cf4292692a4de45272adae79554f4942624af5049d222ac0dbe981944070
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.5.2"
   analyzer:
     dependency: transitive
     description:
@@ -573,6 +565,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.1"
+  hmssdk_flutter:
+    dependency: "direct main"
+    description:
+      name: hmssdk_flutter
+      sha256: "0097739f0005593738021d8c3d56179aee3ae46fa704a0d0be419b4ece4c350d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.10.6"
   http:
     dependency: "direct main"
     description:
@@ -677,22 +677,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
-  iris_method_channel:
-    dependency: transitive
-    description:
-      name: iris_method_channel
-      sha256: bfb5cfc6c6eae42da8cd1b35977a72d8b8881848a5dfc3d672e4760a907d11a0
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.4"
   js:
     dependency: transitive
     description:
       name: js
-      sha256: "53385261521cc4a0c4658fd0ad07a7d14591cf8fc33abbceae306ddb974888dc"
+      sha256: f2c445dce49627136094980615a031419f7f3eb393237e4ecd97ac15dea343f3
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.2"
+    version: "0.6.7"
   json_annotation:
     dependency: transitive
     description:
