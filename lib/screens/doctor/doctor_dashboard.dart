@@ -247,24 +247,24 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             children: [
               Expanded(
                 child: _buildActionCard(
+                  'Consultations',
+                  Icons.video_call,
+                  const Color(0xFF00B4D8),
+                  () => setState(() => _currentIndex = 1),
+                ),
+              ),
+              SizedBox(width: screenWidth * 0.03),
+              Expanded(
+                child: _buildActionCard(
                   'AI Symptom Analyzer',
                   Icons.psychology,
-                  const Color(0xFF00B4D8),
+                  const Color(0xFF0077B6),
                   () => Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const SymptomCheckerScreen(),
                     ),
                   ),
-                ),
-              ),
-              SizedBox(width: screenWidth * 0.03),
-              Expanded(
-                child: _buildActionCard(
-                  'Consultations',
-                  Icons.video_call,
-                  const Color(0xFF0077B6),
-                  () => setState(() => _currentIndex = 1),
                 ),
               ),
             ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import '../services/local_storage_service.dart';
+import '../utils/app_router.dart';
+
 import 'common/chat_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
@@ -141,8 +143,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     );
                   },
                 ),
+
     );
   }
+
+
 
   String _getUserName(Map<String, dynamic> item) {
     if (_userRole == 'patient') {

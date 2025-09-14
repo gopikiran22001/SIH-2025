@@ -44,10 +44,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _checkUserRole() async {
     final user = LocalStorageService.getCurrentUser();
+    print('DEBUG: Checking user role - user: $user');
     if (user != null) {
+      final role = user['role'];
+      print('DEBUG: User role: $role');
       setState(() {
-        _isDoctor = user['role'] == 'doctor';
+        _isDoctor = role == 'doctor';
       });
+      print('DEBUG: Set _isDoctor to: $_isDoctor');
+    } else {
+      print('DEBUG: No user found in local storage');
     }
   }
 
@@ -184,6 +190,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _buildMessageInput(),
         ],
       ),
+
     );
   }
 
@@ -455,6 +462,8 @@ class _ChatScreenState extends State<ChatScreen> {
       _checkOtherUserStatus();
     });
   }
+
+
 
   @override
   void dispose() {

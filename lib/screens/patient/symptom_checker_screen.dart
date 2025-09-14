@@ -5,6 +5,7 @@ import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/offline_sync_service.dart';
 import '../../widgets/loading_overlay.dart';
+import '../../widgets/app_bottom_navigation.dart';
 
 class SymptomCheckerScreen extends StatefulWidget {
   const SymptomCheckerScreen({super.key});
@@ -81,7 +82,8 @@ class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
           ],
         ),
       ),
-      )
+      ),
+      bottomNavigationBar: const AppBottomNavigation(currentRoute: '/symptom-checker'),
     );
   }
 

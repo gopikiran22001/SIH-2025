@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import '../services/local_storage_service.dart';
+import '../widgets/app_bottom_navigation.dart';
 
 
 class ProfileScreen extends StatefulWidget {
@@ -178,6 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: const AppBottomNavigation(currentRoute: '/profile'),
     );
   }
 

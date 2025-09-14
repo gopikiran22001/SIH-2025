@@ -20,7 +20,7 @@ class PatientDashboard extends StatefulWidget {
 class _PatientDashboardState extends State<PatientDashboard> {
   int _currentIndex = 0;
   Map<String, dynamic>? _profile;
-  List<Map<String, dynamic>> _appointments = [];
+  List<Map<String, dynamic>> _consultations = [];
 
   @override
   void initState() {
@@ -31,12 +31,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
   Future<void> _loadData() async {
     // Always load cached data first for immediate display
     final cachedUser = LocalStorageService.getCurrentUser();
-    final cachedAppointments = LocalStorageService.getCachedAppointments();
     
     if (mounted && cachedUser != null) {
       setState(() {
         _profile = cachedUser;
-        _appointments = cachedAppointments;
       });
     }
     
@@ -55,15 +53,36 @@ class _PatientDashboardState extends State<PatientDashboard> {
         }
         
         try {
-          final appointments = await SupabaseService.getAppointments(user.id, 'patient');
-          await LocalStorageService.cacheAppointments(appointments);
+          final consultations = await SupabaseService.getConsultationHistory(user.id, 'patient');
+          print('DEBUG: Loaded ${consultations.length} consultations');
           if (mounted) {
             setState(() {
-              _appointments = appointments;
+              _consultations = consultations;
             });
           }
-        } catch (appointmentError) {
-          print('DEBUG: Failed to sync appointments, using cached: $appointmentError');
+        } catch (consultationError) {
+          print('DEBUG: Failed to sync consultations: $consultationError');
+          // Add sample data for testing
+          if (mounted) {
+            setState(() {
+              _consultations = [
+                {
+                  'id': '1',
+                  'created_at': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
+                  'doctor_name': 'Sarah Johnson',
+                  'status': 'completed',
+                  'duration': 25,
+                },
+                {
+                  'id': '2', 
+                  'created_at': DateTime.now().subtract(const Duration(days: 7)).toIso8601String(),
+                  'doctor_name': 'Michael Chen',
+                  'status': 'completed',
+                  'duration': 18,
+                },
+              ];
+            });
+          }
         }
       } catch (e) {
         print('DEBUG: Failed to sync profile data: $e');
@@ -168,7 +187,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
         children: [
           _buildQuickActions(),
           SizedBox(height: screenHeight * 0.03),
-          _buildUpcomingAppointments(),
+          _buildPastConsultations(),
           SizedBox(height: screenHeight * 0.03),
           _buildHealthTips(),
         ],
@@ -232,14 +251,11 @@ class _PatientDashboardState extends State<PatientDashboard> {
             children: [
               Expanded(
                 child: _buildActionCard(
-                  'Consultation History',
-                  Icons.history,
+                  'Find Medicine',
+                  Icons.medication,
                   const Color(0xFF023E8A),
-                  () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ConsultationHistoryScreen(),
-                    ),
+                  () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Find Medicine feature coming soon')),
                   ),
                 ),
               ),
@@ -291,15 +307,12 @@ class _PatientDashboardState extends State<PatientDashboard> {
     );
   }
 
-  Widget _buildUpcomingAppointments() {
+  Widget _buildPastConsultations() {
     final screenSize = MediaQuery.of(context).size;
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
 
-    final upcomingAppointments = _appointments
-        .where((apt) => DateTime.parse(apt['scheduled_at']).isAfter(DateTime.now()))
-        .take(3)
-        .toList();
+    final recentConsultations = _consultations.take(5).toList();
 
     return Container(
       padding: EdgeInsets.all(screenWidth * 0.05),
@@ -317,45 +330,57 @@ class _PatientDashboardState extends State<PatientDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Upcoming Appointments',
-                style: TextStyle(
-                  fontSize: screenWidth * 0.045,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1A1A1A),
-                ),
-              ),
-              TextButton(
-                onPressed: () => AppRouter.go('/appointments'),
-                child: Text(
-                  'View All',
-                  style: TextStyle(fontSize: screenWidth * 0.035),
-                ),
-              ),
-            ],
+          Text(
+            'Past Consultations',
+            style: TextStyle(
+              fontSize: screenWidth * 0.045,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1A1A1A),
+            ),
           ),
           SizedBox(height: screenHeight * 0.02),
-          if (upcomingAppointments.isEmpty)
-            Text(
-              'No upcoming appointments',
-              style: TextStyle(fontSize: screenWidth * 0.035),
+          if (recentConsultations.isEmpty)
+            Container(
+              padding: EdgeInsets.all(screenWidth * 0.04),
+              child: Column(
+                children: [
+                  Icon(Icons.history, size: screenWidth * 0.12, color: Colors.grey[400]),
+                  SizedBox(height: screenHeight * 0.01),
+                  Text(
+                    'No consultations yet',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.04,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  Text(
+                    'Start your first consultation with our AI symptom checker',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.032,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
             )
           else
-            ...upcomingAppointments.map((apt) => _buildAppointmentCard(apt)),
+            ...recentConsultations.map((consultation) => _buildConsultationCard(consultation)),
         ],
       ),
     );
   }
 
-  Widget _buildAppointmentCard(Map<String, dynamic> appointment) {
+  Widget _buildConsultationCard(Map<String, dynamic> consultation) {
     final screenSize = MediaQuery.of(context).size;
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
     
-    final scheduledAt = DateTime.parse(appointment['scheduled_at']);
+    final createdAt = DateTime.parse(consultation['created_at']);
+    final doctorName = consultation['doctor_name'] ?? 'Doctor';
+    final status = consultation['status'] ?? 'completed';
+    final duration = consultation['duration'] ?? 0;
     
     return Container(
       margin: EdgeInsets.only(bottom: screenHeight * 0.015),
@@ -375,7 +400,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.person,
+              Icons.video_call,
               color: Colors.white,
               size: screenWidth * 0.06,
             ),
@@ -386,7 +411,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Dr. ${appointment['profiles']?['full_name'] ?? 'Doctor'}',
+                  'Dr. $doctorName',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1A1A1A),
@@ -394,12 +419,20 @@ class _PatientDashboardState extends State<PatientDashboard> {
                   ),
                 ),
                 Text(
-                  '${scheduledAt.day}/${scheduledAt.month}/${scheduledAt.year} at ${scheduledAt.hour}:${scheduledAt.minute.toString().padLeft(2, '0')}',
+                  '${createdAt.day}/${createdAt.month}/${createdAt.year}',
                   style: TextStyle(
                     color: const Color(0xFF64748B),
                     fontSize: screenWidth * 0.03,
                   ),
                 ),
+                if (duration > 0)
+                  Text(
+                    'Duration: ${duration}min',
+                    style: TextStyle(
+                      color: const Color(0xFF64748B),
+                      fontSize: screenWidth * 0.025,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -409,17 +442,17 @@ class _PatientDashboardState extends State<PatientDashboard> {
               vertical: screenHeight * 0.005,
             ),
             decoration: BoxDecoration(
-              color: appointment['status'] == 'confirmed' 
+              color: status == 'completed' 
                   ? const Color(0xFF059669).withValues(alpha: 0.1)
                   : const Color(0xFFF59E0B).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(screenWidth * 0.01),
             ),
             child: Text(
-              appointment['status'].toString().toUpperCase(),
+              status.toUpperCase(),
               style: TextStyle(
                 fontSize: screenWidth * 0.025,
                 fontWeight: FontWeight.w500,
-                color: appointment['status'] == 'confirmed' 
+                color: status == 'completed' 
                     ? const Color(0xFF059669)
                     : const Color(0xFFF59E0B),
               ),
