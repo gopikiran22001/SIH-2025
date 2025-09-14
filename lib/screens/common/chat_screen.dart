@@ -30,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = true;
   bool _isOtherUserOnline = false;
   Timer? _statusTimer;
+
   bool _isDoctor = false;
 
   @override
@@ -40,6 +41,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _subscribeToMessages();
     _checkOtherUserStatus();
     _startStatusMonitoring();
+
   }
 
   Future<void> _checkUserRole() async {
@@ -128,20 +130,33 @@ class _ChatScreenState extends State<ChatScreen> {
     final screenWidth = screenSize.width;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
+        elevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, size: screenWidth * 0.06),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'MedVita',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: screenWidth * 0.04,
+              backgroundColor: const Color(0xFF00B4D8),
+              child: Icon(Icons.person, color: Colors.white, size: screenWidth * 0.04),
+            ),
+            SizedBox(width: screenWidth * 0.03),
+            Expanded(
+              child: Text(
+                widget.otherUserName,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: screenWidth * 0.045,
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           if (_isDoctor)
@@ -179,11 +194,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 : ListView.builder(
                     controller: _scrollController,
                     padding: EdgeInsets.all(screenWidth * 0.04),
-                    itemCount: _messages.length,
+                    itemCount: _buildMessageItems().length,
                     itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      final isMe = message.senderId == SupabaseService.currentUser?.id;
-                      return _buildMessageBubble(message, isMe);
+                      return _buildMessageItems()[index];
                     },
                   ),
           ),
@@ -209,18 +222,26 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         constraints: BoxConstraints(
           maxWidth: screenWidth * 0.75,
+          minWidth: screenWidth * 0.2,
         ),
         decoration: BoxDecoration(
-          color: isMe ? const Color(0xFF00B4D8) : Colors.white,
-          borderRadius: BorderRadius.circular(screenWidth * 0.04).copyWith(
-            bottomRight: isMe ? Radius.circular(screenWidth * 0.01) : null,
-            bottomLeft: !isMe ? Radius.circular(screenWidth * 0.01) : null,
+          gradient: isMe 
+              ? const LinearGradient(
+                  colors: [Color(0xFF00B4D8), Color(0xFF0077B6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isMe ? null : Colors.white,
+          borderRadius: BorderRadius.circular(screenWidth * 0.045).copyWith(
+            bottomRight: isMe ? Radius.circular(screenWidth * 0.015) : null,
+            bottomLeft: !isMe ? Radius.circular(screenWidth * 0.015) : null,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: screenWidth * 0.0125,
-              offset: Offset(0, screenHeight * 0.0025),
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: screenWidth * 0.02,
+              offset: Offset(0, screenHeight * 0.003),
             ),
           ],
         ),
@@ -231,16 +252,32 @@ class _ChatScreenState extends State<ChatScreen> {
               message.message ?? '',
               style: TextStyle(
                 color: isMe ? Colors.white : const Color(0xFF1A1A1A),
-                fontSize: screenWidth * 0.035,
+                fontSize: screenWidth * 0.038,
+                height: 1.3,
+                fontWeight: FontWeight.w400,
               ),
             ),
-            SizedBox(height: screenHeight * 0.005),
-            Text(
-              _formatTime(message.createdAt),
-              style: TextStyle(
-                color: isMe ? Colors.white70 : const Color(0xFF64748B),
-                fontSize: screenWidth * 0.025,
-              ),
+            SizedBox(height: screenHeight * 0.008),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatTime(message.createdAt),
+                  style: TextStyle(
+                    color: isMe ? Colors.white.withValues(alpha: 0.8) : const Color(0xFF64748B),
+                    fontSize: screenWidth * 0.028,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                if (isMe) ...<Widget>[
+                  SizedBox(width: screenWidth * 0.01),
+                  Icon(
+                    Icons.done_all,
+                    size: screenWidth * 0.035,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
@@ -255,11 +292,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Container(
       padding: EdgeInsets.all(screenWidth * 0.04),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Color(0xFFE2E8F0)),
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -296,13 +337,24 @@ class _ChatScreenState extends State<ChatScreen> {
           Container(
             width: screenWidth * 0.12,
             height: screenWidth * 0.12,
-            decoration: const BoxDecoration(
-              color: Color(0xFF00B4D8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF00B4D8), Color(0xFF0077B6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00B4D8).withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: IconButton(
               icon: Icon(
-                Icons.send,
+                Icons.send_rounded,
                 color: Colors.white,
                 size: screenWidth * 0.05,
               ),
@@ -320,15 +372,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
     _messageController.clear();
 
+    final now = DateTime.now();
     final messageData = {
       'conversation_id': widget.conversationId,
       'sender_id': SupabaseService.currentUser?.id,
       'receiver_id': widget.otherUserId,
       'message': messageText,
+      'created_at': now.toIso8601String(),
       'meta': {},
     };
     
-    print('DEBUG: Sending message: $messageData');
+    print('DEBUG: Sending message with timestamp: $messageData');
 
     try {
       await SupabaseService.sendMessage(messageData);
@@ -443,18 +497,72 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String _formatTime(DateTime? dateTime) {
     if (dateTime == null) return '';
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+    final hour = dateTime.hour;
+    final minute = dateTime.minute;
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return '${displayHour.toString()}:${minute.toString().padLeft(2, '0')} $period';
+  }
 
-    if (difference.inDays > 0) {
-      return '${dateTime.day}/${dateTime.month}';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
+  String _formatDate(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    
+    if (messageDate == today) {
+      return 'Today';
+    } else if (messageDate == today.subtract(const Duration(days: 1))) {
+      return 'Yesterday';
     } else {
-      return 'Just now';
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     }
+  }
+
+  List<Widget> _buildMessageItems() {
+    final items = <Widget>[];
+    String? lastDate;
+    
+    for (int i = 0; i < _messages.length; i++) {
+      final message = _messages[i];
+      final messageDate = _formatDate(message.createdAt!);
+      
+      // Add date separator if date changed
+      if (lastDate != messageDate) {
+        items.add(_buildDateSeparator(messageDate));
+        lastDate = messageDate;
+      }
+      
+      final isMe = message.senderId == SupabaseService.currentUser?.id;
+      items.add(_buildMessageBubble(message, isMe));
+    }
+    
+    return items;
+  }
+
+  Widget _buildDateSeparator(String date) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: screenHeight * 0.02),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: Colors.grey[300])),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.03),
+            child: Text(
+              date,
+              style: TextStyle(
+                fontSize: screenWidth * 0.03,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: Colors.grey[300])),
+        ],
+      ),
+    );
   }
 
   void _startStatusMonitoring() {
@@ -465,9 +573,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
 
 
+
+
   @override
   void dispose() {
     _statusTimer?.cancel();
+
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
