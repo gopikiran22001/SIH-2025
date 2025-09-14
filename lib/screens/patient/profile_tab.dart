@@ -154,11 +154,7 @@ class _ProfileTabState extends State<ProfileTab> {
           CircleAvatar(
             radius: screenWidth * 0.12,
             backgroundColor: const Color(0xFF00B4D8),
-            child: Icon(
-              Icons.person,
-              size: screenWidth * 0.12,
-              color: Colors.white,
-            ),
+            backgroundImage: const AssetImage('assets/icons/WhatsApp Image 2025-09-13 at 16.03.16_104a23fc.jpg'),
           ),
           SizedBox(height: screenWidth * 0.03),
           Text(

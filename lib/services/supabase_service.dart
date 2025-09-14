@@ -604,6 +604,19 @@ class SupabaseService {
             consultation['patient_name'] = 'Unknown Patient';
           }
         }
+      } else if (role == 'patient') {
+        for (final consultation in consultations) {
+          try {
+            final doctorProfile = await client
+                .from('profiles')
+                .select('full_name')
+                .eq('id', consultation['doctor_id'])
+                .single();
+            consultation['doctor_name'] = doctorProfile['full_name'];
+          } catch (e) {
+            consultation['doctor_name'] = 'Unknown Doctor';
+          }
+        }
       }
       
       return consultations;
