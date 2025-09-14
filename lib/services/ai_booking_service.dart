@@ -24,6 +24,7 @@ class AiBookingService {
   }
 
   static Future<Map<String, dynamic>> analyzeSymptoms(String symptoms) async {
+    print('DEBUG: Analyzing symptoms: $symptoms');
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/analyze-symptoms'),
@@ -31,36 +32,54 @@ class AiBookingService {
         body: json.encode({'symptoms': symptoms}),
       );
       
+      print('DEBUG: Symptom analysis response status: ${response.statusCode}');
+      print('DEBUG: Symptom analysis response body: ${response.body}');
+      
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final result = json.decode(response.body);
+        print('DEBUG: Parsed symptom analysis result: $result');
+        return result;
       }
     } catch (e) {
-      print('Symptom analysis error: $e');
+      print('DEBUG: Symptom analysis error: $e');
     }
     
-    return {'condition': 'Unknown', 'confidence': 0.0};
+    final fallback = {'condition': 'Unknown', 'confidence': 0.0};
+    print('DEBUG: Using fallback symptom analysis: $fallback');
+    return fallback;
   }
 
   static Future<Map<String, dynamic>> assessRisk(int age, bool chestPain, bool shortnessOfBreath) async {
+    print('DEBUG: Assessing risk - Age: $age, Chest pain: $chestPain, SOB: $shortnessOfBreath');
     try {
+      final requestBody = {
+        'age': age,
+        'chest_pain': chestPain,
+        'shortness_of_breath': shortnessOfBreath,
+      };
+      print('DEBUG: Risk assessment request body: $requestBody');
+      
       final response = await http.post(
         Uri.parse('$_baseUrl/assess-risk'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'age': age,
-          'chest_pain': chestPain,
-          'shortness_of_breath': shortnessOfBreath,
-        }),
+        body: json.encode(requestBody),
       );
       
+      print('DEBUG: Risk assessment response status: ${response.statusCode}');
+      print('DEBUG: Risk assessment response body: ${response.body}');
+      
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final result = json.decode(response.body);
+        print('DEBUG: Parsed risk assessment result: $result');
+        return result;
       }
     } catch (e) {
-      print('Risk assessment error: $e');
+      print('DEBUG: Risk assessment error: $e');
     }
     
-    return {'risk_level': 'low', 'risk_score': 0.0};
+    final fallback = {'risk_level': 'low', 'risk_score': 0.0};
+    print('DEBUG: Using fallback risk assessment: $fallback');
+    return fallback;
   }
 
   static Future<List<Map<String, dynamic>>> findAvailableDoctors(String specialization) async {

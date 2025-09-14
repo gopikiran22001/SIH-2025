@@ -502,6 +502,9 @@ class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
         _symptomsController.text.toLowerCase().contains('breath'),
       );
       
+      print('DEBUG: Analysis result: $analysisResult');
+      print('DEBUG: Risk assessment: $riskAssessment');
+      
       // Format results to match expected structure
       final formattedAnalysis = {
         'conditions': [{
@@ -519,14 +522,17 @@ class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
       };
       
       final formattedRisk = {
-        'risk_level': riskAssessment['risk_level'],
-        'confidence': riskAssessment['risk_score'],
+        'risk_level': riskAssessment['risk_level'] ?? 'low',
+        'risk_score': riskAssessment['risk_score'] ?? 0.0,
+        'confidence': riskAssessment['risk_score'] ?? 0.0,
         'recommendations': [
-          riskAssessment['risk_level'] == 'high' 
+          (riskAssessment['risk_level'] ?? 'low') == 'high' 
             ? 'Seek immediate medical attention'
             : 'Monitor symptoms and consult doctor if needed',
         ],
       };
+      
+      print('DEBUG: Formatted risk: $formattedRisk');
 
       final user = SupabaseService.currentUser;
       if (user != null) {
@@ -539,8 +545,8 @@ class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
             'gender': _selectedGender,
           },
           'result': {
-            'analysis': analysisResult,
-            'risk_assessment': riskAssessment,
+            'analysis': formattedAnalysis,
+            'risk_assessment': formattedRisk,
           },
           'created_at': DateTime.now().toIso8601String(),
         };

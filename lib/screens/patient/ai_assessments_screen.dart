@@ -89,6 +89,7 @@ class _AiAssessmentsScreenState extends State<AiAssessmentsScreen> {
                   itemCount: _assessments.length,
                   itemBuilder: (context, index) {
                     final assessment = _assessments[index];
+                    print('DEBUG: Displaying assessment $index: $assessment');
                     final date = DateTime.parse(assessment['created_at']);
                     
                     return Container(
@@ -139,6 +140,8 @@ class _AiAssessmentsScreenState extends State<AiAssessmentsScreen> {
                           _buildSymptomsSection(assessment['symptoms'], screenWidth),
                           SizedBox(height: screenWidth * 0.03),
                           _buildResultSection(assessment['result'], screenWidth),
+                          SizedBox(height: screenWidth * 0.02),
+                          _buildRiskAssessmentSection(assessment['result'], screenWidth),
                         ],
                       ),
                     );
@@ -379,11 +382,34 @@ class _AiAssessmentsScreenState extends State<AiAssessmentsScreen> {
     if (result == null) return [];
     if (result is Map) {
       final resultMap = Map<String, dynamic>.from(result);
-      if (resultMap['analysis'] is Map && resultMap['analysis']['conditions'] is List) {
-        return resultMap['analysis']['conditions'];
+      
+      // Check for new structure: result.analysis.condition
+      if (resultMap['analysis'] is Map) {
+        final analysis = resultMap['analysis'];
+        if (analysis['condition'] != null) {
+          return [{
+            'condition': analysis['condition'],
+            'confidence': analysis['confidence'] ?? 0.0,
+            'severity': _getSeverityFromConfidence(analysis['confidence'] ?? 0.0),
+          }];
+        }
+        if (analysis['conditions'] is List) {
+          return analysis['conditions'];
+        }
       }
+      
+      // Check for direct conditions array
       if (resultMap['conditions'] is List) {
         return resultMap['conditions'];
+      }
+      
+      // Check for single condition at root level
+      if (resultMap['condition'] != null) {
+        return [{
+          'condition': resultMap['condition'],
+          'confidence': resultMap['confidence'] ?? 0.0,
+          'severity': _getSeverityFromConfidence(resultMap['confidence'] ?? 0.0),
+        }];
       }
     }
     return [];
@@ -393,15 +419,34 @@ class _AiAssessmentsScreenState extends State<AiAssessmentsScreen> {
     if (result == null) return [];
     if (result is Map) {
       final resultMap = Map<String, dynamic>.from(result);
+      
+      List<dynamic> recommendations = [];
+      
+      // Check analysis recommendations
       if (resultMap['analysis'] is Map && resultMap['analysis']['recommendations'] is List) {
-        return resultMap['analysis']['recommendations'];
+        recommendations.addAll(resultMap['analysis']['recommendations']);
       }
-      if (resultMap['recommendations'] is List) {
-        return resultMap['recommendations'];
-      }
+      
+      // Check risk assessment recommendations
       if (resultMap['risk_assessment'] is Map && resultMap['risk_assessment']['recommendations'] is List) {
-        return resultMap['risk_assessment']['recommendations'];
+        recommendations.addAll(resultMap['risk_assessment']['recommendations']);
       }
+      
+      // Check direct recommendations
+      if (resultMap['recommendations'] is List) {
+        recommendations.addAll(resultMap['recommendations']);
+      }
+      
+      // If no recommendations found, provide default ones
+      if (recommendations.isEmpty) {
+        recommendations = [
+          'Monitor symptoms closely',
+          'Stay hydrated and rest',
+          'Consult a doctor if symptoms worsen',
+        ];
+      }
+      
+      return recommendations;
     }
     return [];
   }
@@ -421,5 +466,105 @@ class _AiAssessmentsScreenState extends State<AiAssessmentsScreen> {
   String _capitalizeString(String text) {
     if (text.isEmpty) return text;
     return '${text[0].toUpperCase()}${text.substring(1).toLowerCase()}';
+  }
+  
+  String _getSeverityFromConfidence(double confidence) {
+    if (confidence > 0.8) return 'high';
+    if (confidence > 0.5) return 'medium';
+    return 'low';
+  }
+  
+  Widget _buildRiskAssessmentSection(dynamic result, double screenWidth) {
+    print('DEBUG: _buildRiskAssessmentSection called with result: $result');
+    if (result == null) {
+      print('DEBUG: Result is null, returning empty widget');
+      return const SizedBox.shrink();
+    }
+    
+    Map<String, dynamic>? riskAssessment;
+    if (result is Map && result['risk_assessment'] is Map) {
+      riskAssessment = result['risk_assessment'];
+      print('DEBUG: Found risk_assessment: $riskAssessment');
+    } else {
+      print('DEBUG: No risk_assessment found in result');
+    }
+    
+    if (riskAssessment == null) {
+      print('DEBUG: Risk assessment is null, returning empty widget');
+      return const SizedBox.shrink();
+    }
+    
+    final riskLevel = riskAssessment['risk_level'] ?? 'low';
+    final riskScore = (riskAssessment['risk_score'] ?? riskAssessment['confidence'] ?? 0.0).toDouble();
+    
+    print('DEBUG: Displaying risk - Level: $riskLevel, Score: $riskScore, Raw data: $riskAssessment');
+    
+    Color riskColor;
+    switch (riskLevel.toLowerCase()) {
+      case 'high':
+        riskColor = Colors.red;
+        break;
+      case 'medium':
+        riskColor = Colors.orange;
+        break;
+      default:
+        riskColor = Colors.green;
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Risk Assessment',
+          style: TextStyle(
+            fontSize: screenWidth * 0.035,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF374151),
+          ),
+        ),
+        SizedBox(height: screenWidth * 0.02),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(screenWidth * 0.03),
+          decoration: BoxDecoration(
+            color: riskColor.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(screenWidth * 0.02),
+            border: Border.all(color: riskColor.withValues(alpha: 0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.security,
+                    size: screenWidth * 0.04,
+                    color: riskColor,
+                  ),
+                  SizedBox(width: screenWidth * 0.02),
+                  Text(
+                    'Risk Level: ${riskLevel.toUpperCase()}',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.035,
+                      fontWeight: FontWeight.w600,
+                      color: riskColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    riskScore < 0.01 ? '<1%' : '${(riskScore * 100).toInt()}%',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.03,
+                      fontWeight: FontWeight.w600,
+                      color: riskColor,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
