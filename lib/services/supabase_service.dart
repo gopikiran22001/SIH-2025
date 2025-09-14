@@ -59,14 +59,35 @@ class SupabaseService {
   static Future<Map<String, dynamic>?> getProfile(String userId) async {
     print('DEBUG: Getting profile for user ID: $userId');
     try {
-      print('DEBUG: Executing profile query...');
+      print('DEBUG: Executing profile query with LEFT JOINs for patient and doctor data...');
+      
+      // Use proper SQL LEFT JOIN syntax for PostgreSQL
       final response = await client
           .from('profiles')
-          .select('*')
+          .select('*, patients(blood_group, emergency_contact), doctors(specialization, clinic_name, qualifications, verified, rating)')
           .eq('id', userId)
           .single()
           .timeout(const Duration(seconds: 10));
-      print('DEBUG: Profile response from server: $response');
+      
+      print('DEBUG: Raw profile response from server: $response');
+      print('DEBUG: Response type: ${response.runtimeType}');
+      print('DEBUG: Response keys: ${response.keys.toList()}');
+      
+      // Check what we got for patients and doctors
+      if (response['patients'] != null) {
+        print('DEBUG: Patients data: ${response['patients']}');
+        print('DEBUG: Patients data type: ${response['patients'].runtimeType}');
+      } else {
+        print('DEBUG: No patients data in response');
+      }
+      
+      if (response['doctors'] != null) {
+        print('DEBUG: Doctors data: ${response['doctors']}');
+        print('DEBUG: Doctors data type: ${response['doctors'].runtimeType}');
+      } else {
+        print('DEBUG: No doctors data in response');
+      }
+      
       return response;
     } on TimeoutException {
       print('DEBUG: Profile fetch timeout - likely offline');
@@ -86,6 +107,8 @@ class SupabaseService {
   }
   
   static Future<void> updateProfile(String userId, Map<String, dynamic> data) async {
+    print('DEBUG: Updating profile for user $userId with data: $data');
+    
     final profileData = <String, dynamic>{};
     final patientData = <String, dynamic>{};
     final doctorData = <String, dynamic>{};
@@ -98,14 +121,24 @@ class SupabaseService {
       if (profileFields.contains(entry.key)) {
         profileData[entry.key] = entry.value;
       } else if (patientFields.contains(entry.key)) {
-        patientData[entry.key] = entry.value;
+        // Handle emergency_contact as JSONB - convert string to JSON if needed
+        if (entry.key == 'emergency_contact' && entry.value is String) {
+          // If it's a phone number string, wrap it in JSON format
+          patientData[entry.key] = {'phone': entry.value};
+        } else {
+          patientData[entry.key] = entry.value;
+        }
       } else if (doctorFields.contains(entry.key)) {
         doctorData[entry.key] = entry.value;
       }
     }
     
+    print('DEBUG: Separated data - Profile: $profileData, Patient: $patientData, Doctor: $doctorData');
+    
     if (profileData.isNotEmpty) {
+      print('DEBUG: Updating profiles table...');
       await client.from('profiles').update(profileData).eq('id', userId);
+      print('DEBUG: Profiles table updated successfully');
     }
     
     if (patientData.isNotEmpty) {
@@ -116,19 +149,52 @@ class SupabaseService {
         await client.from('patients').upsert(patientData);
         print('DEBUG: Upserted patient record successfully');
       } catch (e) {
-        print('DEBUG: Error updating patient data: $e');
+        print('DEBUG: Error upserting patient data: $e');
         // Fallback: try update only if upsert fails
         try {
-          await client.from('patients').update(patientData).eq('id', userId);
+          final updateData = Map<String, dynamic>.from(patientData);
+          updateData.remove('id'); // Remove id for update
+          await client.from('patients').update(updateData).eq('id', userId);
           print('DEBUG: Fallback update successful');
         } catch (updateError) {
           print('DEBUG: Fallback update also failed: $updateError');
+          // Last resort: try insert
+          try {
+            await client.from('patients').insert(patientData);
+            print('DEBUG: Insert successful as last resort');
+          } catch (insertError) {
+            print('DEBUG: All patient update methods failed: $insertError');
+          }
         }
       }
     }
     
     if (doctorData.isNotEmpty) {
-      await client.from('doctors').update(doctorData).eq('id', userId);
+      print('DEBUG: Updating doctors table with data: $doctorData for userId: $userId');
+      try {
+        // Use upsert to handle both insert and update
+        doctorData['id'] = userId;
+        await client.from('doctors').upsert(doctorData);
+        print('DEBUG: Upserted doctor record successfully');
+      } catch (e) {
+        print('DEBUG: Error upserting doctor data: $e');
+        // Fallback: try update only if upsert fails
+        try {
+          final updateData = Map<String, dynamic>.from(doctorData);
+          updateData.remove('id'); // Remove id for update
+          await client.from('doctors').update(updateData).eq('id', userId);
+          print('DEBUG: Fallback doctor update successful');
+        } catch (updateError) {
+          print('DEBUG: Fallback doctor update also failed: $updateError');
+          // Last resort: try insert
+          try {
+            await client.from('doctors').insert(doctorData);
+            print('DEBUG: Doctor insert successful as last resort');
+          } catch (insertError) {
+            print('DEBUG: All doctor update methods failed: $insertError');
+          }
+        }
+      }
     }
   }
   
@@ -261,93 +327,84 @@ class SupabaseService {
   // Doctor specific methods
   static Future<List<Map<String, dynamic>>> getDoctorPatients(String doctorId) async {
     try {
-      final response = await client
-          .from('appointments')
-          .select('patient_id, profiles!appointments_patient_id_fkey(*), patients(*)')
+      final consultations = await client
+          .from('video_consultations')
+          .select('patient_id, created_at')
           .eq('doctor_id', doctorId)
-          .eq('status', 'confirmed');
+          .eq('status', 'completed')
+          .order('created_at', ascending: false);
       
-      final uniquePatients = <String, Map<String, dynamic>>{};
-      for (final appointment in response) {
-        final patientId = appointment['patient_id'];
+      final Map<String, Map<String, dynamic>> uniquePatients = {};
+      
+      for (final consultation in consultations) {
+        final patientId = consultation['patient_id'];
         if (!uniquePatients.containsKey(patientId)) {
-          uniquePatients[patientId] = appointment;
+          final profile = await client
+              .from('profiles')
+              .select('id, full_name, phone, gender')
+              .eq('id', patientId)
+              .single();
+          
+          final patientData = await client
+              .from('patients')
+              .select('blood_group, emergency_contact')
+              .eq('id', patientId)
+              .maybeSingle();
+          
+          uniquePatients[patientId] = {
+            'patient_id': patientId,
+            'created_at': consultation['created_at'],
+            'profiles': profile,
+            'patients': patientData,
+          };
         }
       }
+      
       return uniquePatients.values.toList();
     } catch (e) {
+      print('DEBUG: Failed to fetch doctor patients: $e');
       return [];
     }
   }
   
   static Future<Map<String, dynamic>> getDoctorStats(String doctorId) async {
     try {
-      final appointments = await client
-          .from('appointments')
+      final consultations = await client
+          .from('video_consultations')
           .select('status')
           .eq('doctor_id', doctorId);
       
-      final total = appointments.length;
-      final completed = appointments.where((a) => a['status'] == 'completed').length;
-      final pending = appointments.where((a) => a['status'] == 'pending').length;
-      final confirmed = appointments.where((a) => a['status'] == 'confirmed').length;
+      final total = consultations.length;
+      final completed = consultations.where((c) => c['status'] == 'completed').length;
+      final pending = consultations.where((c) => c['status'] == 'pending').length;
+      final active = consultations.where((c) => c['status'] == 'active').length;
       
       return {
-        'total_appointments': total,
-        'completed_appointments': completed,
-        'pending_appointments': pending,
-        'confirmed_appointments': confirmed,
+        'total_consultations': total,
+        'completed_consultations': completed,
+        'pending_consultations': pending,
+        'active_consultations': active,
       };
     } catch (e) {
       return {
-        'total_appointments': 0,
-        'completed_appointments': 0,
-        'pending_appointments': 0,
-        'confirmed_appointments': 0,
+        'total_consultations': 0,
+        'completed_consultations': 0,
+        'pending_consultations': 0,
+        'active_consultations': 0,
       };
     }
   }
   
   static Future<Map<String, dynamic>> createPrescription(Map<String, dynamic> data) async {
-    print('DEBUG: Starting prescription creation with data: $data');
-    
     try {
-      // Validate required fields
-      final requiredFields = ['patient_id', 'doctor_id', 'content'];
-      for (final field in requiredFields) {
-        if (!data.containsKey(field) || data[field] == null || data[field].toString().trim().isEmpty) {
-          throw Exception('Missing required field: $field');
-        }
-      }
-      
-      print('DEBUG: All required fields present, inserting into database...');
-      print('DEBUG: Supabase client status: ${client.auth.currentUser != null ? "authenticated" : "not authenticated"}');
-      print('DEBUG: Current user: ${client.auth.currentUser?.id}');
-      
-      try {
-        print('DEBUG: Attempting database insertion...');
-        final response = await client
-            .from('prescriptions')
-            .insert(data)
-            .select()
-            .single();
-            
-        print('DEBUG: Database insertion successful: $response');
-        return response;
-      } on PostgrestException catch (postgrestError) {
-        print('DEBUG: PostgrestException during insertion:');
-        print('DEBUG: Error code: ${postgrestError.code}');
-        print('DEBUG: Error message: ${postgrestError.message}');
-        print('DEBUG: Error details: ${postgrestError.details}');
-        print('DEBUG: Error hint: ${postgrestError.hint}');
-        throw postgrestError;
-      } on Exception catch (e) {
-        print('DEBUG: General exception during insertion: $e');
-        throw e;
-      }
+      final response = await client
+          .from('prescriptions')
+          .insert(data)
+          .select()
+          .single();
+      return response;
     } catch (e) {
       print('DEBUG: Failed to create prescription: $e');
-      print('DEBUG: Error type: ${e.runtimeType}');
       throw e;
     }
   }
@@ -357,7 +414,7 @@ class SupabaseService {
     try {
       final response = await client
           .from('prescriptions')
-          .select('*, profiles!prescriptions_doctor_id_fkey(*)')
+          .select('*, profiles!prescriptions_doctor_id_fkey(full_name)')
           .eq('patient_id', patientId)
           .order('created_at', ascending: false)
           .timeout(const Duration(seconds: 10));
@@ -375,7 +432,7 @@ class SupabaseService {
     try {
       final response = await client
           .from('medical_records')
-          .select('*, profiles!medical_records_doctor_id_fkey(*)')
+          .select('*, profiles!medical_records_doctor_id_fkey(full_name)')
           .eq('patient_id', patientId)
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response);
@@ -524,6 +581,7 @@ class SupabaseService {
   static Future<List<Map<String, dynamic>>> getConsultationHistory(String userId, String role) async {
     try {
       final column = role == 'patient' ? 'patient_id' : 'doctor_id';
+      
       final response = await client
           .from('video_consultations')
           .select('*')
@@ -533,23 +591,16 @@ class SupabaseService {
       
       final consultations = List<Map<String, dynamic>>.from(response);
       
-      // Fetch patient names for doctor consultations
       if (role == 'doctor') {
-        print('DEBUG: Fetching patient names for ${consultations.length} consultations');
         for (final consultation in consultations) {
-          final patientId = consultation['patient_id'];
-          print('DEBUG: Fetching name for patient ID: $patientId');
           try {
             final patientProfile = await client
                 .from('profiles')
                 .select('full_name')
-                .eq('id', patientId)
+                .eq('id', consultation['patient_id'])
                 .single();
-            final patientName = patientProfile['full_name'] ?? 'Unknown Patient';
-            consultation['patient_name'] = patientName;
-            print('DEBUG: Found patient name: $patientName');
+            consultation['patient_name'] = patientProfile['full_name'];
           } catch (e) {
-            print('DEBUG: Failed to fetch patient name for $patientId: $e');
             consultation['patient_name'] = 'Unknown Patient';
           }
         }

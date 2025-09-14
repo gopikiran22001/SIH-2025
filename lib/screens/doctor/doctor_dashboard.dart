@@ -5,6 +5,7 @@ import 'doctor_appointments_tab.dart';
 import 'doctor_patients_tab.dart';
 import 'doctor_profile_tab.dart';
 import 'doctor_consultations_tab.dart';
+import '../patient/symptom_checker_screen.dart';
 
 class DoctorDashboard extends StatefulWidget {
   const DoctorDashboard({super.key});
@@ -41,6 +42,18 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         print('DEBUG: Failed to load doctor data: $e');
       }
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _getRecentConsultations() async {
+    final user = SupabaseService.currentUser;
+    if (user != null) {
+      try {
+        return await SupabaseService.getConsultationHistory(user.id, 'doctor');
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
   }
 
   @override
@@ -84,7 +97,6 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           children: [
             _buildHomeTab(),
             _buildConsultationsTab(),
-            _buildAppointmentsTab(),
             _buildPatientsTab(),
             _buildProfileTab(),
           ],
@@ -92,7 +104,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          print('DEBUG: Doctor dashboard tab tapped: $index');
+          setState(() => _currentIndex = index);
+        },
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF00B4D8),
         unselectedItemColor: const Color(0xFF64748B),
@@ -102,7 +117,6 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
           BottomNavigationBarItem(icon: Icon(Icons.video_call), label: 'Consultations'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Appointments'),
           BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Patients'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
@@ -124,7 +138,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           SizedBox(height: screenHeight * 0.03),
           _buildQuickActions(),
           SizedBox(height: screenHeight * 0.03),
-          _buildTodayAppointments(),
+          _buildRecentConsultations(),
         ],
       ),
     );
@@ -137,9 +151,9 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       children: [
         Expanded(
           child: _buildStatCard(
-            'Total Appointments',
-            _stats['total_appointments']?.toString() ?? '0',
-            Icons.calendar_today,
+            'Total Consultations',
+            _stats['total_consultations']?.toString() ?? '0',
+            Icons.video_call,
             const Color(0xFF00B4D8),
           ),
         ),
@@ -147,7 +161,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         Expanded(
           child: _buildStatCard(
             'Completed',
-            _stats['completed_appointments']?.toString() ?? '0',
+            _stats['completed_consultations']?.toString() ?? '0',
             Icons.check_circle,
             const Color(0xFF0077B6),
           ),
@@ -233,10 +247,15 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             children: [
               Expanded(
                 child: _buildActionCard(
-                  'View Patients',
-                  Icons.people,
+                  'AI Symptom Analyzer',
+                  Icons.psychology,
                   const Color(0xFF00B4D8),
-                  () => setState(() => _currentIndex = 3),
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SymptomCheckerScreen(),
+                    ),
+                  ),
                 ),
               ),
               SizedBox(width: screenWidth * 0.03),
@@ -255,10 +274,12 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             children: [
               Expanded(
                 child: _buildActionCard(
-                  'Create Prescription',
-                  Icons.receipt,
+                  'Find Medicine',
+                  Icons.medication,
                   const Color(0xFF023E8A),
-                  () => _showCreatePrescription(),
+                  () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Find Medicine feature coming soon')),
+                  ),
                 ),
               ),
               SizedBox(width: screenWidth * 0.03),
@@ -309,7 +330,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     );
   }
 
-  Widget _buildTodayAppointments() {
+  Widget _buildRecentConsultations() {
     final screenSize = MediaQuery.of(context).size;
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
@@ -334,7 +355,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Today\'s Appointments',
+                'Recent Consultations',
                 style: TextStyle(
                   fontSize: screenWidth * 0.045,
                   fontWeight: FontWeight.w600,
@@ -342,7 +363,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 ),
               ),
               TextButton(
-                onPressed: () => setState(() => _currentIndex = 2),
+                onPressed: () => setState(() => _currentIndex = 1),
                 child: Text(
                   'View All',
                   style: TextStyle(
@@ -354,12 +375,89 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             ],
           ),
           SizedBox(height: screenHeight * 0.02),
-          Text(
-            'No appointments for today',
-            style: TextStyle(
-              fontSize: screenWidth * 0.035,
-              color: const Color(0xFF64748B),
-            ),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _getRecentConsultations(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Text(
+                  'No recent consultations',
+                  style: TextStyle(
+                    fontSize: screenWidth * 0.035,
+                    color: const Color(0xFF64748B),
+                  ),
+                );
+              }
+              
+              return Column(
+                children: snapshot.data!.take(5).map((consultation) {
+                  final createdAt = DateTime.parse(consultation['created_at']);
+                  final patientName = consultation['patient_name'] ?? 'Unknown Patient';
+                  final status = consultation['status'];
+                  
+                  return Container(
+                    margin: EdgeInsets.only(bottom: screenHeight * 0.01),
+                    padding: EdgeInsets.all(screenWidth * 0.03),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.video_call,
+                          color: const Color(0xFF00B4D8),
+                          size: screenWidth * 0.04,
+                        ),
+                        SizedBox(width: screenWidth * 0.03),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                patientName,
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.035,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '${createdAt.day}/${createdAt.month}/${createdAt.year}',
+                                style: TextStyle(
+                                  fontSize: screenWidth * 0.03,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.02,
+                            vertical: screenWidth * 0.005,
+                          ),
+                          decoration: BoxDecoration(
+                            color: status == 'completed' ? Colors.green : Colors.orange,
+                            borderRadius: BorderRadius.circular(screenWidth * 0.01),
+                          ),
+                          child: Text(
+                            status.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.025,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
           ),
         ],
       ),
@@ -375,18 +473,15 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   }
 
   Widget _buildPatientsTab() {
-    return const DoctorPatientsTab();
+    print('DEBUG: Building patients tab');
+    return DoctorPatientsTab(key: ValueKey(_currentIndex));
   }
 
   Widget _buildProfileTab() {
     return const DoctorProfileTab();
   }
 
-  void _showCreatePrescription() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Create prescription feature coming soon')),
-    );
-  }
+
 
   Widget _buildStatusToggle() {
     final isOnline = _profile?['status'] == true;

@@ -83,19 +83,25 @@ class _ProfileTabState extends State<ProfileTab> {
       // Get blood group from patients table
       final patientData = _profile!['patients'];
       print('DEBUG: Patient data: $patientData');
-      if (patientData != null) {
-        String? bloodGroup, emergencyContact;
-        if (patientData is List && patientData.isNotEmpty) {
-          bloodGroup = patientData[0]['blood_group'];
-          emergencyContact = patientData[0]['emergency_contact'];
-        } else if (patientData is Map) {
-          bloodGroup = patientData['blood_group'];
-          emergencyContact = patientData['emergency_contact'];
-        }
+      if (patientData != null && patientData is Map) {
+        final bloodGroup = patientData['blood_group'];
+        final emergencyContact = patientData['emergency_contact'];
+        
         print('DEBUG: Blood group from DB: $bloodGroup');
         print('DEBUG: Emergency contact from DB: $emergencyContact');
-        _bloodGroupController.text = bloodGroup ?? '';
-        _emergencyContactController.text = emergencyContact ?? '';
+        
+        _bloodGroupController.text = bloodGroup?.toString() ?? '';
+        
+        // Handle JSONB emergency contact format
+        String emergencyContactText = '';
+        if (emergencyContact != null) {
+          if (emergencyContact is Map && emergencyContact['phone'] != null) {
+            emergencyContactText = emergencyContact['phone'].toString();
+          } else if (emergencyContact is String) {
+            emergencyContactText = emergencyContact;
+          }
+        }
+        _emergencyContactController.text = emergencyContactText;
       }
     }
   }
@@ -519,6 +525,7 @@ class _ProfileTabState extends State<ProfileTab> {
           print('DEBUG: Saving blood group: ${_bloodGroupController.text}');
         }
         if (_emergencyContactController.text.isNotEmpty) {
+          // Store emergency contact as JSONB format
           updatedProfile['emergency_contact'] = _emergencyContactController.text;
           print('DEBUG: Saving emergency contact: ${_emergencyContactController.text}');
         }
@@ -610,28 +617,27 @@ class _ProfileTabState extends State<ProfileTab> {
 
   String _getPatientBloodGroup() {
     final patientData = _profile?['patients'];
-    if (patientData != null) {
-      String? bloodGroup;
-      if (patientData is List && patientData.isNotEmpty) {
-        bloodGroup = patientData[0]['blood_group'];
-      } else if (patientData is Map) {
-        bloodGroup = patientData['blood_group'];
+    if (patientData != null && patientData is Map) {
+      final bloodGroup = patientData['blood_group'];
+      if (bloodGroup != null && bloodGroup.toString().isNotEmpty) {
+        return bloodGroup.toString();
       }
-      if (bloodGroup != null && bloodGroup.isNotEmpty) return bloodGroup;
     }
     return _bloodGroupController.text.isNotEmpty ? _bloodGroupController.text : 'Not provided';
   }
 
   String _getPatientEmergencyContact() {
     final patientData = _profile?['patients'];
-    if (patientData != null) {
-      String? emergencyContact;
-      if (patientData is List && patientData.isNotEmpty) {
-        emergencyContact = patientData[0]['emergency_contact'];
-      } else if (patientData is Map) {
-        emergencyContact = patientData['emergency_contact'];
+    if (patientData != null && patientData is Map) {
+      final emergencyContact = patientData['emergency_contact'];
+      if (emergencyContact != null) {
+        // Handle JSONB format {phone: "number"} or direct string
+        if (emergencyContact is Map && emergencyContact['phone'] != null) {
+          return emergencyContact['phone'].toString();
+        } else if (emergencyContact is String && emergencyContact.isNotEmpty) {
+          return emergencyContact;
+        }
       }
-      if (emergencyContact != null && emergencyContact.isNotEmpty) return emergencyContact;
     }
     return _emergencyContactController.text.isNotEmpty ? _emergencyContactController.text : 'Not provided';
   }

@@ -124,7 +124,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
             index: _currentIndex,
             children: [
               _buildHomeTab(),
-              _buildAppointmentsTab(),
               _buildAiAnalysisTab(),
               _buildChatTab(),
               _buildProfileTab(),
@@ -134,7 +133,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          if (index == 2) { // Chat tab
+            AppRouter.go('/chat-list');
+          } else {
+            setState(() => _currentIndex = index);
+          }
+        },
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF00B4D8),
         unselectedItemColor: const Color(0xFF64748B),
@@ -143,7 +148,6 @@ class _PatientDashboardState extends State<PatientDashboard> {
         iconSize: screenWidth * 0.06,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Appointments'),
           BottomNavigationBarItem(icon: Icon(Icons.psychology), label: 'AI Analysis'),
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
@@ -325,7 +329,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 ),
               ),
               TextButton(
-                onPressed: () => setState(() => _currentIndex = 1),
+                onPressed: () => AppRouter.go('/appointments'),
                 child: Text(
                   'View All',
                   style: TextStyle(fontSize: screenWidth * 0.035),

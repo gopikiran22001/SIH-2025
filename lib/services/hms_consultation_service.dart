@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:uuid/uuid.dart';
 import 'package:hmssdk_flutter/hmssdk_flutter.dart';
 import 'supabase_service.dart';
 import 'hms_token_service.dart';
+import 'notification_service.dart';
 
 class HMSConsultationService extends HMSUpdateListener {
   static const Uuid _uuid = Uuid();
@@ -78,38 +80,35 @@ class HMSConsultationService extends HMSUpdateListener {
     required String patientId,
     required String doctorId,
     required String symptoms,
+    required bool isPatientInitiated,
   }) async {
+    print('DEBUG: HMSConsultationService.createVideoConsultation called');
+    print('DEBUG: Parameters - patientId: $patientId, doctorId: $doctorId');
+    print('DEBUG: Symptoms: $symptoms');
+    
     try {
       final consultationId = _uuid.v4();
-      final roomId = HMSTokenService.createRoom();
+      print('DEBUG: Generated consultation ID: $consultationId');
       
-      final patientToken = await HMSTokenService.generateToken(
-        roomId: roomId,
-        userId: patientId,
-        role: 'guest',
+      // Create unique HMS room for this consultation
+      print('DEBUG: Creating HMS room...');
+      final roomId = await HMSTokenService.createRoom(
+        doctorId: doctorId,
+        patientId: patientId,
       );
       
-      final doctorToken = await HMSTokenService.generateToken(
-        roomId: roomId,
-        userId: doctorId,
-        role: 'host',
-      );
+      print('DEBUG: HMS room created successfully: $roomId');
       
-      print('DEBUG: Created consultation with roomId: $roomId');
-      final patientPreview = patientToken.length > 50 ? patientToken.substring(0, 50) : patientToken;
-      final doctorPreview = doctorToken.length > 50 ? doctorToken.substring(0, 50) : doctorToken;
-      print('DEBUG: Patient token: $patientPreview...');
-      print('DEBUG: Doctor token: $doctorPreview...');
-      
+      // Store consultation with room_id (tokens will be generated on-demand)
+      print('DEBUG: Inserting consultation into database...');
       final consultation = await SupabaseService.client
           .from('video_consultations')
           .insert({
             'id': consultationId,
             'patient_id': patientId,
             'doctor_id': doctorId,
-            'channel_name': roomId,
-            'patient_token': patientToken,
-            'doctor_token': doctorToken,
+            'room_id': roomId,
+            'channel_name': roomId, // Keep for backward compatibility
             'symptoms': symptoms,
             'status': 'pending',
             'created_at': DateTime.now().toIso8601String(),
@@ -117,50 +116,151 @@ class HMSConsultationService extends HMSUpdateListener {
           .select()
           .single();
 
+      print('DEBUG: Consultation created successfully in database');
+      print('DEBUG: Consultation data: ${consultation.toString()}');
+      
+      // Get patient and doctor names for incoming call
+      final patientProfile = await SupabaseService.getProfile(patientId);
+      final doctorProfile = await SupabaseService.getProfile(doctorId);
+      
+      final patientName = patientProfile?['full_name'] ?? 'Patient';
+      final doctorName = doctorProfile?['full_name'] ?? 'Doctor';
+      
+      // Send FCM notification to the receiving party ONLY
+      print('DEBUG: isPatientInitiated: $isPatientInitiated');
+      print('DEBUG: Patient ID: $patientId, Doctor ID: $doctorId');
+      print('DEBUG: Patient Name: $patientName, Doctor Name: $doctorName');
+      
+      if (isPatientInitiated) {
+        // Patient is calling doctor - send notification to doctor ONLY
+        print('DEBUG: Patient initiated call - sending notification to doctor: $doctorId');
+        print('DEBUG: Caller name will be: $patientName');
+        await _sendConsultationNotification(
+          targetUserId: doctorId,
+          callerName: patientName,
+          symptoms: symptoms,
+          consultationId: consultationId,
+        );
+      } else {
+        // Doctor is calling patient - send notification to patient ONLY
+        print('DEBUG: Doctor initiated call - sending notification to patient: $patientId');
+        print('DEBUG: Caller name will be: $doctorName');
+        await _sendConsultationNotification(
+          targetUserId: patientId,
+          callerName: doctorName,
+          symptoms: symptoms,
+          consultationId: consultationId,
+        );
+      }
+      
+      // Set 1 minute 15 second timeout to auto-end call if no one connects
+      Timer(const Duration(seconds: 75), () async {
+        try {
+          final currentConsultation = await SupabaseService.client
+              .from('video_consultations')
+              .select('status')
+              .eq('id', consultationId)
+              .single();
+          
+          if (currentConsultation['status'] == 'pending' || currentConsultation['status'] == 'active') {
+            print('DEBUG: Auto-ending consultation after 75 seconds timeout');
+            await SupabaseService.client
+                .from('video_consultations')
+                .update({
+                  'status': 'timeout',
+                  'ended_at': DateTime.now().toIso8601String(),
+                })
+                .eq('id', consultationId);
+            
+            // Cancel any remaining notifications
+            await NotificationService.cancelNotification(consultationId);
+          }
+        } catch (e) {
+          print('DEBUG: Error in timeout handler: $e');
+        }
+      });
+      
       return consultation;
     } catch (e) {
-      print('Error creating video consultation: $e');
+      print('DEBUG: Error creating video consultation: $e');
+      print('DEBUG: Error type: ${e.runtimeType}');
+      if (e is Exception) {
+        print('DEBUG: Exception message: ${e.toString()}');
+      }
       return null;
     }
   }
 
   static Future<void> joinConsultation({
     required String consultationId,
-    required String roomId,
-    required String authToken,
+    required String userId,
     required String userName,
     required bool isDoctor,
     required Function(String, {dynamic data}) onUpdate,
   }) async {
+    print('DEBUG: HMSConsultationService.joinConsultation called');
+    print('DEBUG: Parameters - consultationId: $consultationId, userId: $userId');
+    print('DEBUG: userName: $userName, isDoctor: $isDoctor');
+    
     try {
       // Ensure initialization
+      print('DEBUG: Initializing HMS SDK...');
       await initialize();
       
-      _currentRoomId = roomId;
       _currentConsultationId = consultationId;
       _onUpdate = onUpdate;
+      print('DEBUG: Set current consultation ID and update callback');
+
+      // Generate token for this specific consultation
+      print('DEBUG: Generating token for consultation...');
+      final authToken = await HMSTokenService.generateTokenForConsultation(
+        consultationId: consultationId,
+        userId: userId,
+      );
+      print('DEBUG: Token generated successfully');
+      
+      // Get room_id from consultation
+      print('DEBUG: Fetching consultation details from database...');
+      final consultation = await SupabaseService.client
+          .from('video_consultations')
+          .select('room_id, status, doctor_id, patient_id')
+          .eq('id', consultationId)
+          .single();
+      
+      _currentRoomId = consultation['room_id'];
+      print('DEBUG: Consultation details:');
+      print('DEBUG: - Room ID: $_currentRoomId');
+      print('DEBUG: - Status: ${consultation['status']}');
+      print('DEBUG: - Doctor ID: ${consultation['doctor_id']}');
+      print('DEBUG: - Patient ID: ${consultation['patient_id']}');
 
       // Add update listener
       if (_instance != null) {
+        print('DEBUG: Adding HMS update listener...');
         _hmsSDK!.addUpdateListener(listener: _instance!);
+      } else {
+        print('DEBUG: WARNING - HMS instance is null');
       }
 
       final tokenPreview = authToken.length > 50 ? authToken.substring(0, 50) : authToken;
       print('DEBUG: HMS joining with token: $tokenPreview...');
+      print('DEBUG: HMS joining room: $_currentRoomId');
       print('DEBUG: HMS joining with userName: $userName');
       
-      // Configure audio settings
-      await _hmsSDK!.toggleMicMuteState(); // Ensure mic is unmuted
-      await _hmsSDK!.toggleMicMuteState(); // Toggle twice to ensure proper state
-      
+      // Configure HMS config
+      print('DEBUG: Creating HMS config...');
       final config = HMSConfig(
         authToken: authToken,
         userName: userName,
       );
+      print('DEBUG: HMS config created successfully');
 
+      print('DEBUG: Joining HMS room...');
       await _hmsSDK!.join(config: config);
+      print('DEBUG: HMS join request sent');
       
       // Update consultation status
+      print('DEBUG: Updating consultation status to active...');
       await SupabaseService.client
           .from('video_consultations')
           .update({
@@ -168,10 +268,15 @@ class HMSConsultationService extends HMSUpdateListener {
             'started_at': DateTime.now().toIso8601String(),
           })
           .eq('id', consultationId);
+      print('DEBUG: Consultation status updated successfully');
           
     } catch (e) {
-      print('Error joining consultation: $e');
-      throw Exception('Failed to join video consultation');
+      print('DEBUG: Error joining consultation: $e');
+      print('DEBUG: Error type: ${e.runtimeType}');
+      if (e is Exception) {
+        print('DEBUG: Exception details: ${e.toString()}');
+      }
+      throw Exception('Failed to join video consultation: $e');
     }
   }
 
@@ -283,6 +388,20 @@ class HMSConsultationService extends HMSUpdateListener {
         .stream(primaryKey: ['id'])
         .eq('id', consultationId)
         .map((data) => data.isNotEmpty ? data.first : null);
+  }
+  
+  static Future<void> _sendConsultationNotification({
+    required String targetUserId,
+    required String callerName,
+    required String symptoms,
+    required String consultationId,
+  }) async {
+    await NotificationService.sendConsultationNotification(
+      targetUserId: targetUserId,
+      callerName: callerName,
+      symptoms: symptoms,
+      consultationId: consultationId,
+    );
   }
 
   static HMSSDK? get hmsSDK => _hmsSDK;

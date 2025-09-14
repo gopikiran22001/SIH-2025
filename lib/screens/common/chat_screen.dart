@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/hms_consultation_service.dart';
+import '../../widgets/loading_overlay.dart';
 import '../../models/chat.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -129,51 +130,12 @@ class _ChatScreenState extends State<ChatScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: const Color(0xFF00B4D8),
-              radius: screenWidth * 0.05,
-              child: Icon(
-                Icons.person,
-                color: Colors.white,
-                size: screenWidth * 0.05,
-              ),
-            ),
-            SizedBox(width: screenWidth * 0.03),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.otherUserName,
-                    style: TextStyle(
-                      color: const Color(0xFF1A1A1A),
-                      fontWeight: FontWeight.w600,
-                      fontSize: screenWidth * 0.04,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.circle,
-                        color: _isOtherUserOnline ? const Color(0xFF0077B6) : Colors.grey,
-                        size: screenWidth * 0.025,
-                      ),
-                      SizedBox(width: screenWidth * 0.01),
-                      Text(
-                        _isOtherUserOnline ? 'Online' : 'Offline',
-                        style: TextStyle(
-                          color: _isOtherUserOnline ? const Color(0xFF0077B6) : Colors.grey,
-                          fontSize: screenWidth * 0.03,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+        title: const Text(
+          'MedVita',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
         ),
         actions: [
           if (_isDoctor)
@@ -428,6 +390,7 @@ class _ChatScreenState extends State<ChatScreen> {
         patientId: patientId,
         doctorId: doctorId,
         symptoms: 'Chat consultation request',
+        isPatientInitiated: !isDoctor, // If current user is not doctor, then patient initiated
       );
       
       if (consultation != null) {
@@ -539,15 +502,17 @@ class _PrescriptionDialogState extends State<_PrescriptionDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Container(
-        padding: EdgeInsets.all(screenWidth * 0.05),
-        constraints: BoxConstraints(
-          maxHeight: screenHeight * 0.8,
-          maxWidth: screenWidth * 0.9,
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
+      child: LoadingOverlay(
+        isLoading: _isLoading,
+        child: Container(
+          padding: EdgeInsets.all(screenWidth * 0.05),
+          constraints: BoxConstraints(
+            maxHeight: screenHeight * 0.8,
+            maxWidth: screenWidth * 0.9,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -658,16 +623,7 @@ class _PrescriptionDialogState extends State<_PrescriptionDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00B4D8),
                       ),
-                      child: _isLoading
-                          ? SizedBox(
-                              width: screenWidth * 0.04,
-                              height: screenWidth * 0.04,
-                              child: const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text('Create'),
+                      child: const Text('Create'),
                     ),
                   ),
                 ],
@@ -675,6 +631,7 @@ class _PrescriptionDialogState extends State<_PrescriptionDialog> {
             ],
           ),
         ),
+      )
       ),
     );
   }

@@ -239,23 +239,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     borderRadius: BorderRadius.circular(screenWidth * 0.03),
                                   ),
                                 ),
-                                child: _isLoading
-                                    ? SizedBox(
-                                        width: screenWidth * 0.05,
-                                        height: screenWidth * 0.05,
-                                        child: const CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text(
-                                        'Create Account',
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.045,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                      ),
+                                child: Text(
+                                  'Create Account',
+                                  style: TextStyle(
+                                    fontSize: screenWidth * 0.045,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
                             ),
                             SizedBox(height: screenHeight * 0.025),

@@ -104,7 +104,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_userRole == 'patient' ? 'Previous Conversations' : 'Patient Conversations'),
+        title: const Text('MedVita'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

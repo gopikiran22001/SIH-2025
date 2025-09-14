@@ -6,27 +6,63 @@ import 'services/local_storage_service.dart';
 import 'services/offline_sync_service.dart';
 import 'services/notification_service.dart';
 import 'services/hms_consultation_service.dart';
+import 'services/consultation_migration_service.dart';
+import 'services/incoming_call_service.dart';
+
 import 'utils/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
-  await Firebase.initializeApp();
-  
-
-  // Initialize services
-  await LocalStorageService.initialize();
-  await SupabaseService.initialize();
-  await NotificationService.initialize();
-  await HMSConsultationService.initialize();
-  
-  // Initialize and sync offline service
-  final syncService = OfflineSyncService();
-  await syncService.init();
-  
-  // Save FCM token after initialization
-  await NotificationService.saveTokenToDatabase();
+  try {
+    // Initialize Firebase
+    await Firebase.initializeApp();
+    print('DEBUG: Firebase initialized');
+    
+    // Initialize services
+    await LocalStorageService.initialize();
+    print('DEBUG: LocalStorage initialized');
+    
+    await SupabaseService.initialize();
+    print('DEBUG: Supabase initialized');
+    
+    await NotificationService.initialize();
+    print('DEBUG: Notification service initialized');
+    
+    await HMSConsultationService.initialize();
+    print('DEBUG: HMS service initialized');
+    
+    await IncomingCallService.initialize();
+    print('DEBUG: Incoming call service initialized');
+    
+    // Initialize and sync offline service
+    final syncService = OfflineSyncService();
+    await syncService.init();
+    print('DEBUG: Offline sync initialized');
+    
+    // Save FCM token after initialization (non-blocking)
+    NotificationService.saveTokenToDatabase().then((_) {
+      print('DEBUG: FCM token saved successfully');
+    }).catchError((e) {
+      print('DEBUG: FCM token save failed: $e');
+    });
+    
+    // Debug: Print FCM token
+    NotificationService.getToken().then((token) {
+      print('DEBUG: Current FCM token: ${token?.substring(0, 50)}...');
+    }).catchError((e) {
+      print('DEBUG: Failed to get FCM token: $e');
+    });
+    
+    // Run consultation migration if needed (non-blocking)
+    ConsultationMigrationService.runMigrationIfNeeded().catchError((e) {
+      print('DEBUG: Migration failed: $e');
+    });
+    
+    print('DEBUG: All services initialized successfully');
+  } catch (e) {
+    print('DEBUG: Service initialization error: $e');
+  }
   
   runApp(const MedVitaApp());
 }
@@ -46,29 +82,32 @@ class _AuthCheckerState extends State<AuthChecker> {
   }
 
   void _checkAuthStatus() async {
-    // Add small delay to ensure Hive is fully initialized
-    await Future.delayed(const Duration(milliseconds: 100));
-    
-    // Check if there's a valid Supabase session first
-    final hasValidSession = SupabaseService.hasValidSession;
-    final supabaseUser = SupabaseService.currentUser;
-    final localUser = LocalStorageService.getCurrentUser();
-    
-    print('DEBUG: Has valid session: $hasValidSession');
-    print('DEBUG: Supabase user: ${supabaseUser?.id}');
-    print('DEBUG: Local user: ${localUser?['id']}');
-    
-    // If no valid Supabase session, clear local data and go to login
-    if (!hasValidSession || supabaseUser == null) {
-      print('DEBUG: No Supabase session, clearing local data');
-      if (localUser != null) {
-        await LocalStorageService.logout();
+    try {
+      // Add small delay to ensure Hive is fully initialized
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Check if there's a valid Supabase session first
+      final hasValidSession = SupabaseService.hasValidSession;
+      final supabaseUser = SupabaseService.currentUser;
+      final localUser = LocalStorageService.getCurrentUser();
+      
+      print('DEBUG: Has valid session: $hasValidSession');
+      print('DEBUG: Supabase user: ${supabaseUser?.id}');
+      print('DEBUG: Local user: ${localUser?['id']}');
+      
+      // If no valid Supabase session, clear local data and go to login
+      if (!hasValidSession || supabaseUser == null) {
+        print('DEBUG: No Supabase session, clearing local data');
+        if (localUser != null) {
+          await LocalStorageService.logout();
+        }
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            AppRouter.replace('/login');
+          });
+        }
+        return;
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        AppRouter.replace('/login');
-      });
-      return;
-    }
     
     // If Supabase session exists but no local user or ID mismatch, sync data
     if (localUser == null || localUser['id'] != supabaseUser.id) {
@@ -94,25 +133,41 @@ class _AuthCheckerState extends State<AuthChecker> {
         }
       } catch (e) {
         print('DEBUG: Failed to sync user data: $e');
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          AppRouter.replace('/login');
-        });
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            AppRouter.replace('/login');
+          });
+        }
       }
       return;
     }
     
     // Valid session and matching local data
     print('DEBUG: Valid session found, role: ${localUser['role']}');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final role = localUser['role'];
-      if (role == 'patient') {
-        AppRouter.replace('/patient-dashboard');
-      } else if (role == 'doctor') {
-        AppRouter.replace('/doctor-dashboard');
-      } else {
-        AppRouter.replace('/login');
+    
+    // FCM notifications will handle incoming calls
+    print('DEBUG: Using FCM notifications for incoming calls');
+    
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final role = localUser['role'];
+        if (role == 'patient') {
+          AppRouter.replace('/patient-dashboard');
+        } else if (role == 'doctor') {
+          AppRouter.replace('/doctor-dashboard');
+        } else {
+          AppRouter.replace('/login');
+        }
+      });
+    }
+    } catch (e) {
+      print('DEBUG: Auth check error: $e');
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AppRouter.replace('/login');
+        });
       }
-    });
+    }
   }
 
   @override

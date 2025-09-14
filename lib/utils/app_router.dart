@@ -3,7 +3,7 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/patient/patient_dashboard.dart';
 import '../screens/patient/symptom_checker_screen.dart';
-import '../screens/common/chat_screen.dart';
+import '../screens/patient/chat_screen.dart';
 import '../screens/common/hms_video_call_screen.dart';
 import '../screens/doctor/doctor_dashboard.dart';
 import '../screens/book_appointment_screen.dart';
@@ -25,10 +25,24 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const DoctorDashboard());
       case '/symptom-checker':
         return MaterialPageRoute(builder: (_) => const SymptomCheckerScreen());
+      case '/ai-assessment':
+        return MaterialPageRoute(builder: (_) => const SymptomCheckerScreen());
       case '/book-appointment':
         return MaterialPageRoute(builder: (_) => const BookAppointmentScreen());
       case '/chat-list':
         return MaterialPageRoute(builder: (_) => const ChatListScreen());
+      case '/chat':
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args != null) {
+          return MaterialPageRoute(
+            builder: (_) => ChatScreen(
+              conversationId: args['conversationId'],
+              otherUserId: args['otherUserId'],
+              otherUserName: args['otherUserName'],
+            ),
+          );
+        }
+        return MaterialPageRoute(builder: (_) => const LoginScreen());
       case '/documents':
         return MaterialPageRoute(builder: (_) => const DocumentsScreen());
       default:
@@ -44,6 +58,23 @@ class AppRouter {
             );
           }
         }
+        if (settings.name?.startsWith('/hms-video-call') == true) {
+          final uri = Uri.parse(settings.name!);
+          final consultationId = uri.queryParameters['consultationId'];
+          final args = settings.arguments as Map<String, dynamic>?;
+          
+          if (consultationId != null && args != null) {
+            return MaterialPageRoute(
+              builder: (_) => HMSVideoCallScreen(
+                consultationId: consultationId,
+                patientId: args['patientId'] ?? '',
+                doctorId: args['doctorId'] ?? '',
+                patientName: args['patientName'] ?? 'Patient',
+                doctorName: args['doctorName'] ?? 'Doctor',
+              ),
+            );
+          }
+        }
         if (settings.name?.startsWith('/video-consultation/') == true) {
           final args = settings.arguments as Map<String, dynamic>?;
           if (args != null) {
@@ -54,8 +85,6 @@ class AppRouter {
                 doctorId: args['doctorId'],
                 patientName: args['patientName'],
                 doctorName: args['doctorName'],
-                roomId: args['roomId'] ?? args['consultationId'],
-                authToken: args['authToken'] ?? 'temp_token',
               ),
             );
           }
@@ -72,6 +101,10 @@ class AppRouter {
   
   static void go(String route) {
     navigatorKey.currentState?.pushNamed(route);
+  }
+  
+  static void push(String route, {Object? arguments}) {
+    navigatorKey.currentState?.pushNamed(route, arguments: arguments);
   }
   
   static void replace(String route) {

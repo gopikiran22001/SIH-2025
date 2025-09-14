@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/ai_booking_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/hms_consultation_service.dart';
+import '../widgets/loading_overlay.dart';
 import 'common/hms_video_call_screen.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
@@ -71,6 +72,7 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         patientId: LocalStorageService.getCurrentUserId()!,
         doctorId: _selectedDoctorId!,
         symptoms: _symptomsController.text.trim(),
+        isPatientInitiated: true, // Patient is calling doctor
       );
 
       if (consultation != null) {
@@ -93,8 +95,6 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
               doctorId: consultation['doctor_id'],
               patientName: LocalStorageService.getCurrentUser()?['full_name'] ?? 'Patient',
               doctorName: selectedDoctor['full_name'] ?? 'Doctor',
-              roomId: consultation['channel_name'],
-              authToken: consultation['patient_token'],
             ),
           ),
         );
@@ -148,87 +148,217 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     return false;
   }
 
+  void _startChatWithDoctor() async {
+    if (_selectedDoctorId == null) return;
+
+    final selectedDoctor = _suggestedDoctors.firstWhere(
+      (doctor) => doctor['id'] == _selectedDoctorId,
+    );
+
+    final user = LocalStorageService.getCurrentUser();
+    if (user == null) return;
+
+    final conversationId = '${user['id']}_$_selectedDoctorId';
+    final doctorName = selectedDoctor['full_name'] ?? 'Doctor';
+
+    Navigator.pushNamed(
+      context,
+      '/chat',
+      arguments: {
+        'conversationId': conversationId,
+        'otherUserId': _selectedDoctorId,
+        'otherUserName': doctorName,
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Video Consultation')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          'Video Consultation',
+          style: TextStyle(
+            color: const Color(0xFF1A1A1A),
+            fontWeight: FontWeight.w600,
+            fontSize: screenWidth * 0.045,
+          ),
+        ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, 
+            color: const Color(0xFF1A1A1A),
+            size: screenWidth * 0.06,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: LoadingOverlay(
+        isLoading: _isLoading,
+        child: SingleChildScrollView(
+        padding: EdgeInsets.all(screenWidth * 0.04),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Describe your symptoms:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _symptomsController,
-              decoration: const InputDecoration(
-                hintText: 'e.g., headache, fever, chest pain...',
+            Container(
+              padding: EdgeInsets.all(screenWidth * 0.04),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(screenWidth * 0.03),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: screenWidth * 0.025,
+                    offset: Offset(0, screenHeight * 0.0025),
+                  ),
+                ],
               ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _getSuggestions,
-                child: _isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Find Online Doctors'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Describe your symptoms:',
+                    style: TextStyle(
+                      fontSize: screenWidth * 0.04,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  SizedBox(height: screenHeight * 0.015),
+                  TextField(
+                    controller: _symptomsController,
+                    style: TextStyle(fontSize: screenWidth * 0.035),
+                    decoration: InputDecoration(
+                      hintText: 'e.g., headache, fever, chest pain...',
+                      hintStyle: TextStyle(fontSize: screenWidth * 0.032),
+                      border: const OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
+                  SizedBox(height: screenHeight * 0.02),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _getSuggestions,
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
+                      ),
+                      child: Text(
+                        'Find Online Doctors',
+                        style: TextStyle(fontSize: screenWidth * 0.04),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             if (_aiSuggestion != null) ...[
-              const SizedBox(height: 24),
+              SizedBox(height: screenHeight * 0.025),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(screenWidth * 0.04),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00B4D8).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFF00B4D8).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(screenWidth * 0.03),
+                  border: Border.all(color: const Color(0xFF00B4D8).withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('AI Recommendation:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('Specialization: ${_aiSuggestion!['specialization']}'),
-                    Text('Confidence: ${(_aiSuggestion!['confidence'] * 100).toInt()}%'),
+                    Text(
+                      'AI Recommendation:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: screenWidth * 0.04,
+                        color: const Color(0xFF00B4D8),
+                      ),
+                    ),
+                    SizedBox(height: screenHeight * 0.01),
+                    Text(
+                      'Specialization: ${_aiSuggestion!['specialization']}',
+                      style: TextStyle(fontSize: screenWidth * 0.035),
+                    ),
+                    Text(
+                      'Confidence: ${(_aiSuggestion!['confidence'] * 100).toInt()}%',
+                      style: TextStyle(fontSize: screenWidth * 0.035),
+                    ),
                   ],
                 ),
               ),
             ],
             if (_suggestedDoctors.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const Text('Online Doctors:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Expanded(
+              SizedBox(height: screenHeight * 0.025),
+              Text(
+                'Online Doctors:',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.045,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1A1A1A),
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.015),
+              Container(
+                height: screenHeight * 0.4,
                 child: ListView.builder(
                   itemCount: _suggestedDoctors.length,
                   itemBuilder: (context, index) {
                     final doctor = _suggestedDoctors[index];
                     final isOnline = doctor['status'] == true;
-                    return Card(
+                    return Container(
+                      margin: EdgeInsets.only(bottom: screenHeight * 0.015),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(screenWidth * 0.03),
+                        border: Border.all(
+                          color: _selectedDoctorId == doctor['id'] 
+                              ? const Color(0xFF00B4D8) 
+                              : Colors.grey.shade200,
+                          width: _selectedDoctorId == doctor['id'] ? 2 : 1,
+                        ),
+                      ),
                       child: RadioListTile<String>(
                         value: doctor['id'],
                         groupValue: _selectedDoctorId,
                         onChanged: isOnline ? (value) => setState(() => _selectedDoctorId = value) : null,
-                        title: Text('Dr. ${doctor['full_name'] ?? 'Unknown'}'),
+                        title: Text(
+                          'Dr. ${doctor['full_name'] ?? 'Unknown'}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: screenWidth * 0.04,
+                          ),
+                        ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildDoctorInfo(doctor),
+                            SizedBox(height: screenHeight * 0.005),
                             Row(
                               children: [
                                 Icon(
                                   isOnline ? Icons.circle : Icons.circle_outlined,
                                   color: isOnline ? Colors.green : Colors.grey,
-                                  size: 12,
+                                  size: screenWidth * 0.03,
                                 ),
-                                const SizedBox(width: 4),
+                                SizedBox(width: screenWidth * 0.01),
                                 Text(
                                   isOnline ? 'Online • Available Now' : 'Offline',
-                                  style: TextStyle(color: isOnline ? Colors.green : Colors.grey),
+                                  style: TextStyle(
+                                    color: isOnline ? Colors.green : Colors.grey,
+                                    fontSize: screenWidth * 0.032,
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
+                                SizedBox(width: screenWidth * 0.02),
                                 if (_getDoctorVerified(doctor))
-                                  const Icon(Icons.verified, color: Color(0xFF00B4D8), size: 16),
+                                  Icon(
+                                    Icons.verified,
+                                    color: const Color(0xFF00B4D8),
+                                    size: screenWidth * 0.04,
+                                  ),
                               ],
                             ),
                           ],
@@ -238,18 +368,45 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _selectedDoctorId != null ? _startVideoConsultation : null,
-                  child: const Text('Start Video Consultation'),
-                ),
+              SizedBox(height: screenHeight * 0.02),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _selectedDoctorId != null ? _startChatWithDoctor : null,
+                      icon: Icon(Icons.chat, size: screenWidth * 0.045),
+                      label: Text(
+                        'Chat with Doctor',
+                        style: TextStyle(fontSize: screenWidth * 0.035),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00B4D8),
+                        padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: screenWidth * 0.03),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _selectedDoctorId != null ? _startVideoConsultation : null,
+                      icon: Icon(Icons.video_call, size: screenWidth * 0.045),
+                      label: Text(
+                        'Video Call',
+                        style: TextStyle(fontSize: screenWidth * 0.035),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0077B6),
+                        padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ],
         ),
       ),
+    ),
     );
   }
 }

@@ -88,6 +88,158 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
     }
   }
 
+  void _showPrescriptionDialog(Map<String, dynamic> consultation) {
+    final prescriptionController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Create Prescription for ${consultation['patient_name']}'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Symptoms: ${consultation['symptoms']}',
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: prescriptionController,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: 'Prescription Details',
+                  hintText: 'Enter medications, dosage, and instructions...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => _createPrescription(consultation, prescriptionController.text),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createPrescription(Map<String, dynamic> consultation, String content) async {
+    if (content.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter prescription details')),
+      );
+      return;
+    }
+
+    try {
+      final currentUser = LocalStorageService.getCurrentUser();
+      if (currentUser == null) return;
+
+      await SupabaseService.createPrescription({
+        'patient_id': consultation['patient_id'],
+        'doctor_id': currentUser['id'],
+        'consultation_id': consultation['id'],
+        'content': content.trim(),
+      });
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Prescription created successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create prescription: $e')),
+        );
+      }
+    }
+  }
+
+  void _viewConsultationDetails(Map<String, dynamic> consultation) {
+    final createdAt = DateTime.parse(consultation['created_at']);
+    final startedAt = consultation['started_at'] != null 
+        ? DateTime.parse(consultation['started_at']) 
+        : null;
+    final endedAt = consultation['ended_at'] != null 
+        ? DateTime.parse(consultation['ended_at']) 
+        : null;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Consultation with ${consultation['patient_name']}'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailRow('Patient', consultation['patient_name']),
+              _buildDetailRow('Symptoms', consultation['symptoms']),
+              _buildDetailRow('Status', consultation['status'].toUpperCase()),
+              _buildDetailRow('Created', _formatDateTime(createdAt)),
+              if (startedAt != null) _buildDetailRow('Started', _formatDateTime(startedAt)),
+              if (endedAt != null) _buildDetailRow('Ended', _formatDateTime(endedAt)),
+              if (startedAt != null && endedAt != null)
+                _buildDetailRow('Duration', _formatDuration(endedAt.difference(startedAt))),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} at ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '${minutes}m ${seconds}s';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -283,17 +435,39 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: status == 'completed' ? null : () => _joinConsultation(consultation),
-                icon: Icon(status == 'active' ? Icons.video_call : Icons.play_arrow),
-                label: Text(actionText),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: status == 'active' ? Colors.green : null,
+            if (status == 'completed') ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showPrescriptionDialog(consultation),
+                      icon: const Icon(Icons.receipt),
+                      label: const Text('Prescribe'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _viewConsultationDetails(consultation),
+                      icon: const Icon(Icons.visibility),
+                      label: const Text('View Details'),
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _joinConsultation(consultation),
+                  icon: Icon(status == 'active' ? Icons.video_call : Icons.play_arrow),
+                  label: Text(actionText),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: status == 'active' ? Colors.green : null,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

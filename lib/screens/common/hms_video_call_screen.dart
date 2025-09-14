@@ -10,9 +10,6 @@ class HMSVideoCallScreen extends StatefulWidget {
   final String doctorId;
   final String patientName;
   final String doctorName;
-  final String roomId;
-  final String authToken;
-
   const HMSVideoCallScreen({
     super.key,
     required this.consultationId,
@@ -20,8 +17,6 @@ class HMSVideoCallScreen extends StatefulWidget {
     required this.doctorId,
     required this.patientName,
     required this.doctorName,
-    required this.roomId,
-    required this.authToken,
   });
 
   @override
@@ -77,8 +72,7 @@ class _HMSVideoCallScreenState extends State<HMSVideoCallScreen> {
       
       await HMSConsultationService.joinConsultation(
         consultationId: widget.consultationId,
-        roomId: widget.roomId,
-        authToken: widget.authToken,
+        userId: currentUser['id'],
         userName: userName,
         isDoctor: isDoctor,
         onUpdate: _onHMSUpdate,
@@ -118,6 +112,9 @@ class _HMSVideoCallScreenState extends State<HMSVideoCallScreen> {
           setState(() {
             _peers.removeWhere((p) => p.peerId == peer.peerId);
           });
+          // End call when any participant leaves
+          print('DEBUG: Participant left - ending call');
+          _endCall();
         }
         break;
       case 'ON_TRACK_UPDATE':

@@ -34,8 +34,8 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
         child: Column(
           children: [
             _buildNavigationCard(
-              'Past Appointments',
-              Icons.medical_services,
+              'Past Consultations',
+              Icons.video_call,
               const Color(0xFF00B4D8),
               () => Navigator.push(
                 context,

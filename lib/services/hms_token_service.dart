@@ -3,124 +3,117 @@ import 'package:http/http.dart' as http;
 import 'supabase_service.dart';
 
 class HMSTokenService {
-  static Future<String> generateToken({
-    required String roomId,
-    required String userId,
-    required String role,
-    String? userName,
+  /// Creates a new 100ms room for a consultation using Edge Function
+  static Future<String> createRoom({
+    required String doctorId,
+    required String patientId,
   }) async {
-    print('DEBUG: Starting HMS token generation');
-    print('DEBUG: Parameters - roomId: $roomId, userId: $userId, role: $role, userName: $userName');
+    print('DEBUG: HMSTokenService.createRoom called');
+    print('DEBUG: Parameters - doctorId: $doctorId, patientId: $patientId');
     
     try {
-      print('DEBUG: Checking Supabase session...');
       final session = SupabaseService.client.auth.currentSession;
-      print('DEBUG: Session exists: ${session != null}');
-      
       if (session == null) {
-        print('DEBUG: No session found, user not authenticated');
+        print('DEBUG: No session found');
         throw Exception('User not authenticated');
       }
       
-      final tokenPreview = session.accessToken.length > 20 ? session.accessToken.substring(0, 20) : session.accessToken;
-      print('DEBUG: Session access token: $tokenPreview...');
-      print('DEBUG: Session expires at: ${session.expiresAt}');
-      print('DEBUG: Session is expired: ${session.isExpired}');
-
-      print('DEBUG: Building request URI...');
-      final baseUrl = '${SupabaseService.supabaseUrl}/functions/v1/generate-hms-token';
-      print('DEBUG: Base URL: $baseUrl');
+      print('DEBUG: Session found, calling Edge Function for room creation');
       
-      final queryParams = {
-        'roomId': roomId,
-        'userId': userId,
-        'role': role,
-        if (userName != null) 'userName': userName,
-      };
-      print('DEBUG: Query parameters: $queryParams');
+      final uri = Uri.parse('${SupabaseService.supabaseUrl}/functions/v1/generate-hms-token')
+          .replace(queryParameters: {
+        'action': 'create_room',
+        'doctorId': doctorId,
+        'patientId': patientId,
+      });
       
-      final uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);
-      print('DEBUG: Final URI: $uri');
-
-      print('DEBUG: Preparing request headers...');
-      final headers = {
-        'Authorization': 'Bearer ${session.accessToken}',
-        'apikey': SupabaseService.supabaseAnonKey,
-        'Content-Type': 'application/json',
-      };
-      print('DEBUG: Headers prepared (auth token hidden)');
-      final keyPreview = SupabaseService.supabaseAnonKey.length > 20 ? SupabaseService.supabaseAnonKey.substring(0, 20) : SupabaseService.supabaseAnonKey;
-      print('DEBUG: API Key: $keyPreview...');
-
-      print('DEBUG: Making HTTP GET request...');
-      final response = await http.get(uri, headers: headers);
+      print('DEBUG: Request URI: $uri');
       
-      print('DEBUG: Response received');
-      print('DEBUG: Status code: ${response.statusCode}');
-      print('DEBUG: Response headers: ${response.headers}');
-      print('DEBUG: Response body: ${response.body}');
-      print('DEBUG: Response body length: ${response.body.length}');
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}',
+          'apikey': SupabaseService.supabaseAnonKey,
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      print('DEBUG: Room creation response status: ${response.statusCode}');
+      print('DEBUG: Room creation response body: ${response.body}');
       
       if (response.statusCode == 200) {
-        print('DEBUG: Success response, parsing JSON...');
-        try {
-          final data = jsonDecode(response.body);
-          print('DEBUG: Parsed JSON data: $data');
-          
-          if (data.containsKey('token')) {
-            final token = data['token'] as String;
-            print('DEBUG: Token extracted successfully');
-            print('DEBUG: Token length: ${token.length}');
-            print('DEBUG: Token type: ${token.runtimeType}');
-            print('DEBUG: Token is empty: ${token.isEmpty}');
-            print('DEBUG: Token equals temp_token: ${token == "temp_token"}');
-            final previewLength = token.length > 50 ? 50 : token.length;
-            print('DEBUG: Token preview: ${token.substring(0, previewLength)}...');
-            
-            // Validate JWT format (should have 3 parts separated by dots)
-            final parts = token.split('.');
-            print('DEBUG: Token parts count: ${parts.length}');
-            if (parts.length != 3) {
-              print('DEBUG: Invalid JWT format - expected 3 parts, got ${parts.length}');
-              throw Exception('Invalid JWT token format');
-            }
-            
-            return token;
-          } else {
-            print('DEBUG: No token field in response');
-            throw Exception('No token in response: $data');
-          }
-        } catch (jsonError) {
-          print('DEBUG: JSON parsing error: $jsonError');
-          throw Exception('Invalid JSON response: ${response.body}');
-        }
+        final data = jsonDecode(response.body);
+        final roomId = data['room_id'] as String;
+        print('DEBUG: Room created successfully: $roomId');
+        return roomId;
       } else {
-        print('DEBUG: Error response, status: ${response.statusCode}');
-        try {
-          final error = jsonDecode(response.body);
-          print('DEBUG: Parsed error response: $error');
-          final errorMsg = error['error'] ?? error['message'] ?? 'Unknown error';
-          final errorDetails = error['details'] ?? '';
-          throw Exception('Failed to generate token: $errorMsg $errorDetails');
-        } catch (jsonError) {
-          print('DEBUG: Could not parse error JSON: $jsonError');
-          throw Exception('HTTP ${response.statusCode}: ${response.body}');
-        }
+        final error = jsonDecode(response.body);
+        print('DEBUG: Room creation failed: ${error['error']}');
+        throw Exception('Failed to create room: ${error['error']}');
       }
     } catch (e) {
-      print('DEBUG: Exception caught in generateToken: $e');
-      print('DEBUG: Exception type: ${e.runtimeType}');
-      if (e is Exception) {
-        print('DEBUG: Re-throwing exception: $e');
-        rethrow;
-      } else {
-        print('DEBUG: Converting error to exception: $e');
-        throw Exception('HMS token generation failed: $e');
-      }
+      print('DEBUG: Room creation error: $e');
+      rethrow;
     }
   }
-
-  static String createRoom() {
-    return '68c61fbda48ca61c46479c18';
+  
+  /// Generates a JWT token for a specific consultation using Edge Function
+  static Future<String> generateTokenForConsultation({
+    required String consultationId,
+    required String userId,
+  }) async {
+    print('DEBUG: HMSTokenService.generateTokenForConsultation called');
+    print('DEBUG: Parameters - consultationId: $consultationId, userId: $userId');
+    
+    try {
+      final session = SupabaseService.client.auth.currentSession;
+      if (session == null) {
+        print('DEBUG: No session found');
+        throw Exception('User not authenticated');
+      }
+      
+      print('DEBUG: Session found, calling Edge Function for token generation');
+      
+      final uri = Uri.parse('${SupabaseService.supabaseUrl}/functions/v1/generate-hms-token')
+          .replace(queryParameters: {
+        'consultationId': consultationId,
+        'userId': userId,
+      });
+      
+      print('DEBUG: Request URI: $uri');
+      
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}',
+          'apikey': SupabaseService.supabaseAnonKey,
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      print('DEBUG: Token generation response status: ${response.statusCode}');
+      print('DEBUG: Token generation response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final token = data['token'] as String;
+        final roomId = data['room_id'] as String;
+        final role = data['role'] as String;
+        
+        print('DEBUG: Token generated successfully');
+        print('DEBUG: Room ID: $roomId');
+        print('DEBUG: Role: $role');
+        print('DEBUG: Token length: ${token.length}');
+        
+        return token;
+      } else {
+        final error = jsonDecode(response.body);
+        print('DEBUG: Token generation failed: ${error['error']}');
+        throw Exception('Failed to generate token: ${error['error']}');
+      }
+    } catch (e) {
+      print('DEBUG: Token generation error: $e');
+      rethrow;
+    }
   }
 }

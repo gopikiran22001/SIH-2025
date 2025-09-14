@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hive/hive.dart';
 import 'supabase_service.dart';
@@ -28,7 +28,7 @@ class OfflineSyncService {
   Future<void> _checkInitialConnectivity() async {
     try {
       final result = await Connectivity().checkConnectivity().timeout(const Duration(seconds: 5));
-      _isOnline = result != ConnectivityResult.none;
+      _isOnline = !result.contains(ConnectivityResult.none);
       
       if (_isOnline) {
         await _syncAllUserData();
@@ -45,7 +45,7 @@ class OfflineSyncService {
   void _monitorConnectivity() {
     Connectivity().onConnectivityChanged.listen((result) {
       final wasOffline = !_isOnline;
-      _isOnline = result != ConnectivityResult.none;
+      _isOnline = !result.contains(ConnectivityResult.none);
       
       print('DEBUG: Connectivity changed - isOnline: $_isOnline');
       

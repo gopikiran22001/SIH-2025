@@ -143,40 +143,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: screenWidth * 0.04,
-              backgroundColor: const Color(0xFF00B4D8),
-              child: Icon(
-                Icons.person,
-                color: Colors.white,
-                size: screenWidth * 0.035,
-              ),
-            ),
-            SizedBox(width: screenWidth * 0.03),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Dr. ${widget.otherUserName}',
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.04,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    'Online',
-                    style: TextStyle(
-                      fontSize: screenWidth * 0.03,
-                      color: const Color(0xFF0077B6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        title: const Text(
+          'MedVita',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,

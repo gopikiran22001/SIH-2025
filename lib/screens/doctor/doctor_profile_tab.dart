@@ -59,11 +59,12 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
       }
       
       // Doctor specific fields
-      final doctorInfo = _getDoctorInfo();
-      if (doctorInfo != null) {
-        _specializationController.text = doctorInfo['specialization'] ?? '';
-        _clinicController.text = doctorInfo['clinic_name'] ?? '';
-        _qualificationsController.text = doctorInfo['qualifications'] ?? '';
+      final doctorData = _profile!['doctors'];
+      print('DEBUG: Doctor data in _populateControllers: $doctorData');
+      if (doctorData != null && doctorData is Map) {
+        _specializationController.text = doctorData['specialization']?.toString() ?? '';
+        _clinicController.text = doctorData['clinic_name']?.toString() ?? '';
+        _qualificationsController.text = doctorData['qualifications']?.toString() ?? '';
       }
     }
   }
@@ -112,11 +113,9 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
           CircleAvatar(
             radius: screenWidth * 0.12,
             backgroundColor: const Color(0xFF00B4D8),
-            child: Icon(
-              Icons.medical_services,
-              size: screenWidth * 0.12,
-              color: Colors.white,
-            ),
+            backgroundImage: const AssetImage('assets/icons/WhatsApp Image 2025-09-13 at 16.03.16_104a23fc.jpg'),
+            onBackgroundImageError: (exception, stackTrace) {},
+            child: const SizedBox(),
           ),
           SizedBox(height: screenWidth * 0.03),
           Text(
@@ -413,22 +412,7 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
     
     return Column(
       children: [
-        _buildActionButton(
-          'My Appointments',
-          Icons.calendar_today,
-          () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Navigate to appointments tab')),
-          ),
-        ),
-        SizedBox(height: screenWidth * 0.03),
-        _buildActionButton(
-          'My Patients',
-          Icons.people,
-          () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Navigate to patients tab')),
-          ),
-        ),
-        SizedBox(height: screenWidth * 0.03),
+
         _buildActionButton(
           'Settings',
           Icons.settings,
@@ -497,9 +481,8 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
 
   Map<String, dynamic>? _getDoctorInfo() {
     final doctorData = _profile?['doctors'];
-    if (doctorData is List && doctorData.isNotEmpty) {
-      return doctorData[0];
-    } else if (doctorData is Map<String, dynamic>) {
+    print('DEBUG: Doctor data in _getDoctorInfo: $doctorData');
+    if (doctorData != null && doctorData is Map<String, dynamic>) {
       return doctorData;
     }
     return null;
