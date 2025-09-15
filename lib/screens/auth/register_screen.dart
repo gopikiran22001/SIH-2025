@@ -89,7 +89,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(screenWidth * 0.03),
                         child: Image.asset(
-                          'assets/icons/WhatsApp Image 2025-09-13 at 16.03.16_104a23fc.jpg',
+                          'assets/icons/WhatsApp Image 2025-09-13 at 16.03.16_104a23fc.png',
                           width: screenWidth * 0.14,
                           height: screenWidth * 0.14,
                           fit: BoxFit.cover,

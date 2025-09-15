@@ -130,7 +130,7 @@ class _AiAssessmentsScreenState extends State<AiAssessmentsScreen> {
                           ),
                           SizedBox(height: screenWidth * 0.02),
                           Text(
-                            '${date.day}/${date.month}/${date.year} at ${date.hour}:${date.minute.toString().padLeft(2, '0')}',
+                            '${date.day}/${date.month}/${date.year}',
                             style: TextStyle(
                               fontSize: screenWidth * 0.035,
                               color: Colors.grey[600],
@@ -483,7 +483,7 @@ class _AiAssessmentsScreenState extends State<AiAssessmentsScreen> {
     
     Map<String, dynamic>? riskAssessment;
     if (result is Map && result['risk_assessment'] is Map) {
-      riskAssessment = result['risk_assessment'];
+      riskAssessment = Map<String, dynamic>.from(result['risk_assessment']);
       print('DEBUG: Found risk_assessment: $riskAssessment');
     } else {
       print('DEBUG: No risk_assessment found in result');

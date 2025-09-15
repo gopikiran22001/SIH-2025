@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'services/supabase_service.dart';
 import 'services/local_storage_service.dart';
@@ -43,6 +44,8 @@ void main() async {
     // Save FCM token after initialization (non-blocking)
     NotificationService.saveTokenToDatabase().then((_) {
       print('DEBUG: FCM token saved successfully');
+      // Test notification after token save
+      _testNotificationSetup();
     }).catchError((e) {
       print('DEBUG: FCM token save failed: $e');
     });
@@ -65,6 +68,31 @@ void main() async {
   }
   
   runApp(const MedVitaApp());
+}
+
+Future<void> _testNotificationSetup() async {
+  try {
+    final userId = LocalStorageService.getCurrentUserId();
+    if (userId != null) {
+      print('DEBUG: Testing notification setup for user: $userId');
+      
+      // Check if FCM token exists in database
+      final profile = await SupabaseService.client
+          .from('profiles')
+          .select('fcm_token, full_name')
+          .eq('id', userId)
+          .single();
+      
+      print('DEBUG: User profile: ${profile['full_name']}');
+      print('DEBUG: FCM token in DB: ${profile['fcm_token'] != null ? 'EXISTS' : 'MISSING'}');
+      
+      if (profile['fcm_token'] != null) {
+        print('DEBUG: FCM token preview: ${profile['fcm_token'].substring(0, 50)}...');
+      }
+    }
+  } catch (e) {
+    print('DEBUG: Test notification setup failed: $e');
+  }
 }
 
 class AuthChecker extends StatefulWidget {
@@ -221,11 +249,32 @@ class MedVitaApp extends StatefulWidget {
 }
 
 class _MedVitaAppState extends State<MedVitaApp> with WidgetsBindingObserver {
+  late OfflineSyncService _syncService;
+  
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _syncService = OfflineSyncService();
     _setUserOnline();
+    _setupConnectivityListener();
+  }
+  
+  void _setupConnectivityListener() {
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+      final hasConnection = results.any((result) => 
+        result == ConnectivityResult.mobile || 
+        result == ConnectivityResult.wifi ||
+        result == ConnectivityResult.ethernet
+      );
+      
+      if (hasConnection) {
+        print('DEBUG: Network connected, syncing data...');
+        _syncService.syncNow().catchError((e) {
+          print('DEBUG: Auto-sync failed: $e');
+        });
+      }
+    });
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
+import '../../services/offline_sync_service.dart';
 import '../../utils/app_router.dart';
 import 'doctor_appointments_tab.dart';
 import 'doctor_patients_tab.dart';
@@ -77,11 +78,11 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           _buildStatusToggle(),
           IconButton(
             icon: Icon(
-              Icons.notifications_outlined,
+              Icons.sync,
               color: const Color(0xFF1A1A1A),
               size: screenWidth * 0.06,
             ),
-            onPressed: () {},
+            onPressed: _testSync,
           ),
         ],
       ),
@@ -546,7 +547,28 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     } catch (e) {
       print('DEBUG: Failed to update status: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update status: $e')),
+        const SnackBar(content: Text('Unable to update status. Please try again.')),
+      );
+    }
+  }
+
+  Future<void> _testSync() async {
+    try {
+      final syncService = OfflineSyncService();
+      
+      // Debug offline operations
+      await syncService.debugOfflineOperations();
+      
+      // Manual sync
+      await syncService.syncNow();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Manual sync completed! Check console logs.')),
+      );
+    } catch (e) {
+      print('DEBUG: Manual sync failed: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sync failed. Please check your connection.')),
       );
     }
   }
@@ -562,9 +584,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         });
       }
     } catch (e) {
+      print('DEBUG: Sign out failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sign out failed: $e')),
+          const SnackBar(content: Text('Unable to sign out. Please try again.')),
         );
       }
     }

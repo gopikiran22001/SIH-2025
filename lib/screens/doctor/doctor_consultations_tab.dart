@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
@@ -12,11 +13,27 @@ class DoctorConsultationsTab extends StatefulWidget {
 class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
   List<Map<String, dynamic>> _consultations = [];
   bool _isLoading = true;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadConsultations();
+    _startAutoRefresh();
+  }
+  
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+  
+  void _startAutoRefresh() {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        _loadConsultations();
+      }
+    });
   }
 
   Future<void> _loadConsultations() async {
@@ -26,29 +43,18 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
 
       final consultations = await SupabaseService.getConsultationHistory(userId, 'doctor');
       
-      // Check for new pending consultations and show notification
-      final pendingCount = consultations.where((c) => c['status'] == 'pending').length;
-      if (pendingCount > 0 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('You have $pendingCount new consultation request${pendingCount > 1 ? 's' : ''}'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+      if (mounted) {
+        setState(() {
+          _consultations = consultations;
+          _isLoading = false;
+        });
       }
-      
-      setState(() {
-        _consultations = consultations;
-        _isLoading = false;
-      });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading consultations: $e')),
-      );
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -90,32 +96,58 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
 
   void _showPrescriptionDialog(Map<String, dynamic> consultation) {
     final prescriptionController = TextEditingController();
+    final screenHeight = MediaQuery.of(context).size.height;
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Create Prescription for ${consultation['patient_name']}'),
+        title: Text(
+          'Create Prescription',
+          style: const TextStyle(fontSize: 18),
+        ),
         content: SizedBox(
           width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Symptoms: ${consultation['symptoms']}',
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: prescriptionController,
-                maxLines: 6,
-                decoration: const InputDecoration(
-                  labelText: 'Prescription Details',
-                  hintText: 'Enter medications, dosage, and instructions...',
-                  border: OutlineInputBorder(),
+          height: screenHeight * 0.4,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Patient: ${consultation['patient_name']}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'Symptoms:',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    consultation['symptoms'] ?? 'No symptoms provided',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: prescriptionController,
+                  maxLines: 8,
+                  decoration: const InputDecoration(
+                    labelText: 'Prescription Details',
+                    hintText: 'Enter medications, dosage, and instructions...',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -177,26 +209,33 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
     final endedAt = consultation['ended_at'] != null 
         ? DateTime.parse(consultation['ended_at']) 
         : null;
+    final screenHeight = MediaQuery.of(context).size.height;
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Consultation with ${consultation['patient_name']}'),
+        title: Text(
+          'Consultation Details',
+          style: const TextStyle(fontSize: 18),
+        ),
         content: SizedBox(
           width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailRow('Patient', consultation['patient_name']),
-              _buildDetailRow('Symptoms', consultation['symptoms']),
-              _buildDetailRow('Status', consultation['status'].toUpperCase()),
-              _buildDetailRow('Created', _formatDateTime(createdAt)),
-              if (startedAt != null) _buildDetailRow('Started', _formatDateTime(startedAt)),
-              if (endedAt != null) _buildDetailRow('Ended', _formatDateTime(endedAt)),
-              if (startedAt != null && endedAt != null)
-                _buildDetailRow('Duration', _formatDuration(endedAt.difference(startedAt))),
-            ],
+          height: screenHeight * 0.4,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDetailRow('Patient', consultation['patient_name']),
+                _buildDetailRow('Symptoms', consultation['symptoms']),
+                _buildDetailRow('Status', consultation['status'].toUpperCase()),
+                _buildDetailRow('Created', _formatDateTime(createdAt)),
+                if (startedAt != null) _buildDetailRow('Started', _formatDateTime(startedAt)),
+                if (endedAt != null) _buildDetailRow('Ended', _formatDateTime(endedAt)),
+                if (startedAt != null && endedAt != null)
+                  _buildDetailRow('Duration', _formatDuration(endedAt.difference(startedAt))),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -211,19 +250,29 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+          Text(
+            '$label:',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
             ),
           ),
-          Expanded(
-            child: Text(value),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              value ?? 'N/A',
+              style: const TextStyle(fontSize: 13),
+            ),
           ),
         ],
       ),

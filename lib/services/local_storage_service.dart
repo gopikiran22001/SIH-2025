@@ -6,6 +6,7 @@ class LocalStorageService {
   static late Box _assessmentsBox;
   static late Box _messagesBox;
   static late Box _medicalHistoryBox;
+  static late Box _reportsBox;
 
   static Future<void> initialize() async {
     await Hive.initFlutter();
@@ -14,6 +15,7 @@ class LocalStorageService {
     _assessmentsBox = await Hive.openBox('ai_assessments');
     _messagesBox = await Hive.openBox('messages');
     _medicalHistoryBox = await Hive.openBox('medical_history');
+    _reportsBox = await Hive.openBox('medical_reports');
   }
 
   // User data
@@ -192,53 +194,56 @@ class LocalStorageService {
             .compareTo(DateTime.parse(a['created_at'])));
   }
 
-  // Logout - clear user session and user-specific data
-  static Future<void> logout() async {
-    print('DEBUG: Logging out user');
+  // Medical Reports
+  static Future<void> cacheReport(Map<String, dynamic> report) async {
     final userId = getCurrentUserId();
+    if (report['id'] != null && userId != null) {
+      await _reportsBox.put('${userId}_${report['id']}', report);
+    }
+  }
+
+  static Future<void> cacheReports(List<Map<String, dynamic>> reports) async {
+    final userId = getCurrentUserId();
+    if (userId == null) return;
     
-    // Clear user session
-    await _userBox.delete('current_user');
-    
-    // Clear user-specific cached data
-    if (userId != null) {
-      // Clear appointments
-      final appointmentKeys = _appointmentsBox.keys
-          .where((key) => key.toString().startsWith('${userId}_'))
-          .toList();
-      for (final key in appointmentKeys) {
-        await _appointmentsBox.delete(key);
-      }
-      
-      // Clear assessments
-      final assessmentKeys = _assessmentsBox.keys
-          .where((key) => key.toString().startsWith('${userId}_'))
-          .toList();
-      for (final key in assessmentKeys) {
-        await _assessmentsBox.delete(key);
-      }
-      
-      // Clear messages
-      final messageKeys = _messagesBox.keys
-          .where((key) => key.toString().startsWith('${userId}_'))
-          .toList();
-      for (final key in messageKeys) {
-        await _messagesBox.delete(key);
-      }
-      
-      // Clear prescriptions
-      final prescriptionKeys = _medicalHistoryBox.keys
-          .where((key) => key.toString().startsWith('${userId}_'))
-          .toList();
-      for (final key in prescriptionKeys) {
-        await _medicalHistoryBox.delete(key);
-      }
-      
-      // Clear medical history
-      await _medicalHistoryBox.delete('medical_history_$userId');
+    // Clear existing reports for this user
+    final keysToDelete = _reportsBox.keys
+        .where((key) => key.toString().startsWith('${userId}_'))
+        .toList();
+    for (final key in keysToDelete) {
+      await _reportsBox.delete(key);
     }
     
-    print('DEBUG: User session and data cleared');
+    for (final report in reports) {
+      await cacheReport(report);
+    }
+  }
+
+  static List<Map<String, dynamic>> getCachedReports() {
+    final userId = getCurrentUserId();
+    if (userId == null) return [];
+    
+    return _reportsBox.keys
+        .where((key) => key.toString().startsWith('${userId}_'))
+        .map((key) => Map<String, dynamic>.from(_reportsBox.get(key)))
+        .toList()
+        ..sort((a, b) => DateTime.parse(b['report_date'])
+            .compareTo(DateTime.parse(a['report_date'])));
+  }
+
+  // Logout - clear ALL user data completely
+  static Future<void> logout() async {
+    print('DEBUG: Logging out user - clearing all data');
+    
+    // Clear all boxes completely to ensure no data remains
+    await _userBox.clear();
+    await _appointmentsBox.clear();
+    await _assessmentsBox.clear();
+    await _messagesBox.clear();
+    await _medicalHistoryBox.clear();
+    await _reportsBox.clear();
+    
+    print('DEBUG: All user data cleared on logout');
   }
 
   // Clear all cache (for complete reset)
@@ -248,5 +253,6 @@ class LocalStorageService {
     await _assessmentsBox.clear();
     await _messagesBox.clear();
     await _medicalHistoryBox.clear();
+    await _reportsBox.clear();
   }
 }

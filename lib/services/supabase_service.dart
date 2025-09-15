@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'local_storage_service.dart';
+import 'offline_sync_service.dart';
 
 class SupabaseService {
   static const String supabaseUrl = 'https://nghrtgqwqrgvyhuiaymf.supabase.co';
@@ -44,6 +46,13 @@ class SupabaseService {
   }
   
   static Future<void> signOut() async {
+    await client.auth.signOut();
+  }
+  
+  static Future<void> signOutAndClearStack() async {
+    // Clear all local data before signing out
+    await LocalStorageService.logout();
+    await OfflineSyncService().clearOfflineData();
     await client.auth.signOut();
   }
   
@@ -455,39 +464,8 @@ class SupabaseService {
       print('DEBUG: All doctors in database: $response');
       
       if (response.isEmpty) {
-        print('DEBUG: No doctors found in database, returning mock data for testing');
-        return [
-          {
-            'id': 'mock-doctor-1',
-            'full_name': 'Dr. John Smith',
-            'role': 'doctor',
-            'status': true,
-            'doctors': [
-              {
-                'specialization': specialization,
-                'clinic_name': 'City Medical Center',
-                'verified': true,
-                'rating': 4.5,
-                'qualifications': 'MBBS, MD'
-              }
-            ]
-          },
-          {
-            'id': 'mock-doctor-2', 
-            'full_name': 'Dr. Sarah Johnson',
-            'role': 'doctor',
-            'status': true,
-            'doctors': [
-              {
-                'specialization': specialization,
-                'clinic_name': 'Health Plus Clinic',
-                'verified': true,
-                'rating': 4.8,
-                'qualifications': 'MBBS, MS'
-              }
-            ]
-          }
-        ];
+        print('DEBUG: No doctors found in database');
+        return [];
       }
       
       final filteredDoctors = List<Map<String, dynamic>>.from(response)
@@ -544,10 +522,12 @@ class SupabaseService {
       await client
           .from('profiles')
           .update({'status': isOnline})
-          .eq('id', userId);
+          .eq('id', userId)
+          .timeout(const Duration(seconds: 5));
       print('DEBUG: Updated user status to ${isOnline ? "online" : "offline"} for user: $userId');
     } catch (e) {
-      print('DEBUG: Failed to update user status: $e');
+      // Silently handle status update failures to prevent app disruption
+      print('DEBUG: Failed to update user status (non-critical): $e');
     }
   }
 
@@ -626,6 +606,102 @@ class SupabaseService {
     } catch (e) {
       print('DEBUG: Failed to fetch consultation history: $e');
       throw Exception('Failed to fetch consultation history');
+    }
+  }
+  
+  // Get conversations for chat sync
+  static Future<List<Map<String, dynamic>>> getConversations(String userId) async {
+    try {
+      final response = await client
+          .from('chats')
+          .select('sender_id, receiver_id')
+          .or('sender_id.eq.$userId,receiver_id.eq.$userId')
+          .timeout(const Duration(seconds: 10));
+      
+      final Set<String> conversationIds = {};
+      for (final chat in response) {
+        final senderId = chat['sender_id'];
+        final receiverId = chat['receiver_id'];
+        final conversationId = senderId.compareTo(receiverId) < 0 
+            ? '${senderId}_$receiverId' 
+            : '${receiverId}_$senderId';
+        conversationIds.add(conversationId);
+      }
+      
+      return conversationIds.map((id) => {'id': id}).toList();
+    } catch (e) {
+      print('DEBUG: Failed to fetch conversations: $e');
+      return [];
+    }
+  }
+  
+  // Get doctor consultations
+  static Future<List<Map<String, dynamic>>> getDoctorConsultations(String doctorId) async {
+    try {
+      final response = await client
+          .from('video_consultations')
+          .select('*, profiles!video_consultations_patient_id_fkey(full_name)')
+          .eq('doctor_id', doctorId)
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 10));
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('DEBUG: Failed to fetch doctor consultations: $e');
+      return [];
+    }
+  }
+  
+  // Medical Reports operations
+  static Future<List<Map<String, dynamic>>> getPatientReports(String patientId) async {
+    try {
+      final response = await client
+          .from('medical_reports')
+          .select('*')
+          .eq('patient_id', patientId)
+          .order('report_date', ascending: false)
+          .timeout(const Duration(seconds: 10));
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('DEBUG: Failed to fetch patient reports: $e');
+      return [];
+    }
+  }
+  
+  static Future<Map<String, dynamic>> createReport(Map<String, dynamic> data) async {
+    try {
+      final response = await client
+          .from('medical_reports')
+          .insert(data)
+          .select()
+          .single();
+      return response;
+    } catch (e) {
+      print('DEBUG: Failed to create report: $e');
+      throw e;
+    }
+  }
+  
+  static Future<void> updateReport(String reportId, Map<String, dynamic> data) async {
+    try {
+      await client
+          .from('medical_reports')
+          .update(data)
+          .eq('id', reportId);
+    } catch (e) {
+      print('DEBUG: Failed to update report: $e');
+      throw e;
+    }
+  }
+  
+  static Future<void> deleteReport(String reportId) async {
+    try {
+      await client
+          .from('medical_reports')
+          .delete()
+          .eq('id', reportId);
+    } catch (e) {
+      print('DEBUG: Failed to delete report: $e');
+      throw e;
     }
   }
 

@@ -151,6 +151,10 @@ class AppRouter {
   static void pop() {
     navigatorKey.currentState?.pop();
   }
+  
+  static void clearStackAndGoToLogin() {
+    navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
+  }
 }
 
 // Placeholder screens - implement these based on your needs

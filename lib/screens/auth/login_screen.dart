@@ -68,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(screenWidth * 0.04),
                         child: Image.asset(
-                          'assets/icons/WhatsApp Image 2025-09-13 at 16.03.16_104a23fc.jpg',
+                          'assets/icons/WhatsApp Image 2025-09-13 at 16.03.16_104a23fc.png',
                           width: screenWidth * 0.15,
                           height: screenWidth * 0.15,
                           fit: BoxFit.cover,

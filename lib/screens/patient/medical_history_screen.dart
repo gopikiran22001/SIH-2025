@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'appointments_history_screen.dart';
 import 'prescriptions_screen.dart';
 import 'ai_assessments_screen.dart';
+import 'reports_screen.dart';
 
 class MedicalHistoryScreen extends StatefulWidget {
   const MedicalHistoryScreen({super.key});
@@ -54,9 +55,19 @@ class _MedicalHistoryScreenState extends State<MedicalHistoryScreen> {
             ),
             SizedBox(height: screenWidth * 0.04),
             _buildNavigationCard(
+              'Medical Reports',
+              Icons.description,
+              const Color(0xFF023E8A),
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ReportsScreen()),
+              ),
+            ),
+            SizedBox(height: screenWidth * 0.04),
+            _buildNavigationCard(
               'AI Health Assessments',
               Icons.psychology,
-              const Color(0xFF023E8A),
+              const Color(0xFF0096C7),
               () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AiAssessmentsScreen()),

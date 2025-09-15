@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
+import '../../services/offline_sync_service.dart';
 import '../../utils/app_router.dart';
 
 class DoctorProfileTab extends StatefulWidget {
@@ -204,11 +205,11 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
             SizedBox(height: screenWidth * 0.03),
             _buildEditableField('Phone', _phoneController),
             SizedBox(height: screenWidth * 0.03),
-            _buildEditableField('Specialization', _specializationController),
+            _buildDisabledField('Specialization', _getDoctorSpecialization()),
             SizedBox(height: screenWidth * 0.03),
-            _buildEditableField('Clinic Name', _clinicController),
+            _buildDisabledField('Clinic Name', _getDoctorClinic()),
             SizedBox(height: screenWidth * 0.03),
-            _buildEditableField('Qualifications', _qualificationsController, maxLines: 3),
+            _buildDisabledField('Qualifications', _getDoctorQualifications()),
             SizedBox(height: screenWidth * 0.03),
             _buildGenderDropdown(),
             SizedBox(height: screenWidth * 0.03),
@@ -282,6 +283,41 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
           decoration: InputDecoration(
             border: const OutlineInputBorder(),
             contentPadding: EdgeInsets.all(screenWidth * 0.03),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildDisabledField(String label, String value) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: screenWidth * 0.035,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF374151),
+          ),
+        ),
+        SizedBox(height: screenWidth * 0.01),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(screenWidth * 0.03),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(4),
+            color: Colors.grey[100],
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: screenWidth * 0.035,
+              color: Colors.grey[600],
+            ),
           ),
         ),
       ],
@@ -520,19 +556,41 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
           'phone': _phoneController.text,
           'gender': _selectedGender,
           'dob': _selectedDob?.toIso8601String().split('T')[0],
-          'specialization': _specializationController.text,
-          'clinic_name': _clinicController.text,
-          'qualifications': _qualificationsController.text,
         };
         
-        await SupabaseService.updateProfile(user.id, updatedProfile);
+        final syncService = OfflineSyncService();
+        
+        print('DEBUG: Saving doctor profile - isOnline: ${syncService.isOnline}');
+        print('DEBUG: Profile data to save: $updatedProfile');
+        
+        if (syncService.isOnline) {
+          print('DEBUG: Device online - updating profile directly to database');
+          await SupabaseService.updateProfile(user.id, updatedProfile);
+          print('DEBUG: Profile updated successfully in database');
+        } else {
+          print('DEBUG: Device offline - queueing profile update for later sync');
+          await syncService.queueProfileUpdate(user.id, updatedProfile);
+          print('DEBUG: Profile update queued for offline sync');
+        }
+        
+        // Update local storage immediately
+        final currentProfile = LocalStorageService.getCurrentUser();
+        if (currentProfile != null) {
+          final updatedLocalProfile = Map<String, dynamic>.from(currentProfile);
+          updatedLocalProfile.addAll(updatedProfile);
+          await LocalStorageService.saveCurrentUser(updatedLocalProfile);
+        }
         
         setState(() => _isEditing = false);
         _loadProfile();
         
         if (mounted) {
+          final message = syncService.isOnline 
+              ? 'Profile updated successfully' 
+              : 'Profile saved offline. Will sync when connected.';
+          print('DEBUG: Showing user message: $message');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile updated successfully')),
+            SnackBar(content: Text(message)),
           );
         }
       }
@@ -548,14 +606,10 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
   Future<void> _signOut() async {
     try {
       // Doctors control their own status, don't auto-set offline
-      await SupabaseService.signOut();
+      await SupabaseService.signOutAndClearStack();
       await LocalStorageService.logout();
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            AppRouter.replace('/login');
-          }
-        });
+        AppRouter.clearStackAndGoToLogin();
       }
     } catch (e) {
       if (mounted) {

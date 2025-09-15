@@ -83,7 +83,7 @@ class _SymptomCheckerScreenState extends State<SymptomCheckerScreen> {
         ),
       ),
       ),
-      bottomNavigationBar: const AppBottomNavigation(currentRoute: '/symptom-checker'),
+
     );
   }
 

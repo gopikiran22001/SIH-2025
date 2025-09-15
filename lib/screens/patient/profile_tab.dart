@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
+import '../../services/offline_sync_service.dart';
 import '../../utils/app_router.dart';
 import '../../widgets/loading_overlay.dart';
 import 'medical_history_screen.dart';
@@ -527,7 +528,21 @@ class _ProfileTabState extends State<ProfileTab> {
         }
         
         print('DEBUG: Updated profile data: $updatedProfile');
-        await SupabaseService.updateProfile(user.id, updatedProfile);
+        
+        final syncService = OfflineSyncService();
+        
+        print('DEBUG: Saving patient profile - isOnline: ${syncService.isOnline}');
+        print('DEBUG: Profile data to save: $updatedProfile');
+        
+        if (syncService.isOnline) {
+          print('DEBUG: Device online - updating profile directly to database');
+          await SupabaseService.updateProfile(user.id, updatedProfile);
+          print('DEBUG: Profile updated successfully in database');
+        } else {
+          print('DEBUG: Device offline - queueing profile update for later sync');
+          await syncService.queueProfileUpdate(user.id, updatedProfile);
+          print('DEBUG: Profile update queued for offline sync');
+        }
         
         // Update local profile with new data
         final newProfile = Map<String, dynamic>.from(_profile!);
@@ -565,8 +580,12 @@ class _ProfileTabState extends State<ProfileTab> {
         });
         
         if (mounted) {
+          final message = syncService.isOnline 
+              ? 'Profile updated successfully' 
+              : 'Profile saved offline. Will sync when connected.';
+          print('DEBUG: Showing user message: $message');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile updated successfully')),
+            SnackBar(content: Text(message)),
           );
         }
       }
@@ -591,14 +610,10 @@ class _ProfileTabState extends State<ProfileTab> {
         await SupabaseService.setUserOffline(user.id);
       }
       
-      await SupabaseService.signOut();
-      await LocalStorageService.logout(); // Only clear user session, keep cached data
+      await SupabaseService.signOutAndClearStack();
+      await LocalStorageService.logout();
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            AppRouter.replace('/login');
-          }
-        });
+        AppRouter.clearStackAndGoToLogin();
       }
     } catch (e) {
       if (mounted) {

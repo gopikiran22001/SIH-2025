@@ -38,6 +38,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
       });
     }
     
+    // Initialize consultations as empty
+    if (mounted) {
+      setState(() {
+        _consultations = [];
+      });
+    }
+    
     // Then try to sync from server if user session exists
     final user = SupabaseService.currentUser;
     if (user != null) {
@@ -62,27 +69,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
           }
         } catch (consultationError) {
           print('DEBUG: Failed to sync consultations: $consultationError');
-          // Add sample data for testing
-          if (mounted) {
-            setState(() {
-              _consultations = [
-                {
-                  'id': '1',
-                  'created_at': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
-                  'doctor_name': 'Sarah Johnson',
-                  'status': 'completed',
-                  'duration': 25,
-                },
-                {
-                  'id': '2', 
-                  'created_at': DateTime.now().subtract(const Duration(days: 7)).toIso8601String(),
-                  'doctor_name': 'Michael Chen',
-                  'status': 'completed',
-                  'duration': 18,
-                },
-              ];
-            });
-          }
+          // Keep consultations empty - no mock data
         }
       } catch (e) {
         print('DEBUG: Failed to sync profile data: $e');
