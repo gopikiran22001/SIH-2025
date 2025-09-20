@@ -177,7 +177,12 @@ class _HMSVideoCallScreenState extends State<HMSVideoCallScreen> {
   Future<void> _endCall() async {
     await HMSConsultationService.endConsultation();
     if (mounted) {
-      Navigator.of(context).pop();
+      final currentUser = LocalStorageService.getCurrentUser();
+      if (currentUser != null && currentUser['role'] == 'doctor') {
+        Navigator.of(context).pushNamedAndRemoveUntil('/doctor-dashboard', (route) => false);
+      } else {
+        Navigator.of(context).pop();
+      }
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/offline_sync_service.dart';
+import '../../services/pusher_beams_service.dart';
 import '../../utils/app_router.dart';
 import '../../widgets/loading_overlay.dart';
 import 'medical_history_screen.dart';
@@ -606,8 +607,13 @@ class _ProfileTabState extends State<ProfileTab> {
     try {
       // Set patient offline before signing out (doctors control their own status)
       final user = SupabaseService.currentUser;
-      if (user != null && _profile?['role'] == 'patient') {
-        await SupabaseService.setUserOffline(user.id);
+      if (user != null) {
+        // Clear Pusher Beams user session
+        await PusherBeamsService.onUserLogout(user.id);
+        
+        if (_profile?['role'] == 'patient') {
+          await SupabaseService.setUserOffline(user.id);
+        }
       }
       
       await SupabaseService.signOutAndClearStack();

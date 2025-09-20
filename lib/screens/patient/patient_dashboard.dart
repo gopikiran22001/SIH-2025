@@ -4,11 +4,11 @@ import '../../services/local_storage_service.dart';
 import '../../services/offline_sync_service.dart';
 import '../../utils/app_router.dart';
 import '../../widgets/offline_indicator.dart';
+import '../../services/notification_test_service.dart';
 import 'appointments_tab.dart';
 import 'ai_analysis_tab.dart';
 import 'chat_tab.dart';
 import 'profile_tab.dart';
-import 'consultation_history_screen.dart';
 
 class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
@@ -108,13 +108,18 @@ class _PatientDashboardState extends State<PatientDashboard> {
               _loadData();
             },
           ),
+
           IconButton(
             icon: Icon(
               Icons.notifications_outlined,
               color: const Color(0xFF1A1A1A),
               size: screenWidth * 0.06,
             ),
-            onPressed: () {},
+            onPressed: () async {
+              await NotificationTestService.testNotificationFlow();
+              final status = await NotificationTestService.getNotificationStatus();
+              print('Notification Status: $status');
+            },
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/offline_sync_service.dart';
+import '../../services/pusher_beams_service.dart';
 import '../../utils/app_router.dart';
 
 class DoctorProfileTab extends StatefulWidget {
@@ -605,6 +606,12 @@ class _DoctorProfileTabState extends State<DoctorProfileTab> {
 
   Future<void> _signOut() async {
     try {
+      final user = SupabaseService.currentUser;
+      if (user != null) {
+        // Clear Pusher Beams user session
+        await PusherBeamsService.onUserLogout(user.id);
+      }
+      
       // Doctors control their own status, don't auto-set offline
       await SupabaseService.signOutAndClearStack();
       await LocalStorageService.logout();

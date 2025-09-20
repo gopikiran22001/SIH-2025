@@ -705,5 +705,31 @@ class SupabaseService {
     }
   }
 
+  // FCM Token management
+  static Future<void> saveFcmToken(String userId, String token) async {
+    try {
+      await client
+          .from('profiles')
+          .update({'fcm_token': token})
+          .eq('id', userId);
+      print('DEBUG: FCM token saved for user: $userId');
+    } catch (e) {
+      print('DEBUG: Failed to save FCM token: $e');
+    }
+  }
+  
+  static Future<String?> getFcmToken(String userId) async {
+    try {
+      final response = await client
+          .from('profiles')
+          .select('fcm_token')
+          .eq('id', userId)
+          .single();
+      return response['fcm_token'];
+    } catch (e) {
+      print('DEBUG: Failed to get FCM token: $e');
+      return null;
+    }
+  }
 
 }

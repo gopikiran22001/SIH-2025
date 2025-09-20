@@ -76,6 +76,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         ),
         actions: [
           _buildStatusToggle(),
+
           IconButton(
             icon: Icon(
               Icons.sync,
@@ -551,6 +552,8 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       );
     }
   }
+
+
 
   Future<void> _testSync() async {
     try {

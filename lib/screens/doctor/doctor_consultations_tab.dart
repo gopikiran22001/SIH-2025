@@ -333,7 +333,7 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
         padding: const EdgeInsets.all(16),
         children: [
           if (pendingConsultations.isNotEmpty) ...[
-            _buildSectionHeader('Pending Requests', pendingConsultations.length, Colors.orange),
+            _buildSectionHeader('Failed Calls', pendingConsultations.length, Colors.red),
             ...pendingConsultations.map((consultation) => _buildConsultationCard(consultation, 'pending')),
             const SizedBox(height: 16),
           ],
@@ -388,14 +388,14 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
     
     switch (status) {
       case 'pending':
-        statusColor = Colors.orange;
-        statusIcon = Icons.pending;
-        actionText = 'Join Consultation';
+        statusColor = Colors.red;
+        statusIcon = Icons.error;
+        actionText = 'Failed';
         break;
       case 'active':
         statusColor = Colors.green;
         statusIcon = Icons.video_call;
-        actionText = 'Rejoin Consultation';
+        actionText = 'Join Consultation';
         break;
       default:
         statusColor = Colors.grey;
@@ -508,11 +508,12 @@ class _DoctorConsultationsTabState extends State<DoctorConsultationsTab> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _joinConsultation(consultation),
-                  icon: Icon(status == 'active' ? Icons.video_call : Icons.play_arrow),
+                  onPressed: status == 'active' ? () => _joinConsultation(consultation) : null,
+                  icon: Icon(status == 'active' ? Icons.video_call : Icons.error),
                   label: Text(actionText),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: status == 'active' ? Colors.green : null,
+                    backgroundColor: status == 'active' ? Colors.green : Colors.red,
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ),

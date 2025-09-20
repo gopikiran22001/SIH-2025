@@ -9,6 +9,7 @@ import '../screens/doctor/doctor_dashboard.dart';
 import '../screens/book_appointment_screen.dart';
 import '../screens/chat_list_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/incoming_call_screen.dart';
 import '../widgets/app_bottom_navigation.dart';
 import '../services/supabase_service.dart';
 import '../services/local_storage_service.dart';
@@ -64,8 +65,6 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const BookAppointmentScreen());
       case '/chat-list':
         return MaterialPageRoute(builder: (_) => const ChatListScreen());
-      case '/profile':
-        return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case '/chat':
         final args = settings.arguments as Map<String, dynamic>?;
         if (args != null) {
@@ -82,6 +81,18 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const DocumentsScreen());
       case '/profile':
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
+      case '/incoming-call':
+        final args = settings.arguments as Map<String, dynamic>?;
+        if (args != null) {
+          return MaterialPageRoute(
+            builder: (_) => IncomingCallScreen(
+              callerName: args['callerName'] ?? 'Unknown Caller',
+              consultationId: args['consultationId'] ?? '',
+              roomId: args['roomId'] ?? '',
+            ),
+          );
+        }
+        return MaterialPageRoute(builder: (_) => const LoginScreen());
       default:
         if (settings.name?.startsWith('/chat/') == true) {
           final parts = settings.name!.split('/');
@@ -146,6 +157,10 @@ class AppRouter {
   
   static void replace(String route) {
     navigatorKey.currentState?.pushReplacementNamed(route);
+  }
+  
+  static void pushReplacement(String route, {Object? arguments}) {
+    navigatorKey.currentState?.pushReplacementNamed(route, arguments: arguments);
   }
   
   static void pop() {

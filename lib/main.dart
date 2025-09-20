@@ -1,16 +1,57 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'services/supabase_service.dart';
 import 'services/local_storage_service.dart';
 import 'services/offline_sync_service.dart';
-import 'services/notification_service.dart';
+import 'services/pusher_beams_service.dart';
+import 'services/deep_link_service.dart';
 import 'services/hms_consultation_service.dart';
 import 'services/consultation_migration_service.dart';
-import 'services/incoming_call_service.dart';
+import 'services/notification_test_service.dart';
+
 
 import 'utils/app_router.dart';
+
+// Background message handler
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print('DEBUG: Background message received: ${message.messageId}');
+  print('DEBUG: Background message data: ${message.data}');
+  
+  // For call notifications, just log - Firebase will show the notification
+  if (message.data['type'] == 'call') {
+    print('DEBUG: Call notification received in background');
+    print('DEBUG: Firebase will display the notification automatically');
+  }
+}
+
+// Setup notification channels for Android
+Future<void> _setupNotificationChannels() async {
+  try {
+    // This will be handled by the native Android side
+    // We just ensure Firebase Messaging is properly configured
+    final messaging = FirebaseMessaging.instance;
+    
+    // Request permissions
+    await messaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: true,
+      provisional: false,
+      sound: true,
+    );
+    
+    print('DEBUG: Notification permissions requested');
+  } catch (e) {
+    print('DEBUG: Error setting up notification channels: $e');
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +61,10 @@ void main() async {
     await Firebase.initializeApp();
     print('DEBUG: Firebase initialized');
     
+    // Set background message handler
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    print('DEBUG: Background message handler set');
+    
     // Initialize services
     await LocalStorageService.initialize();
     print('DEBUG: LocalStorage initialized');
@@ -27,35 +72,27 @@ void main() async {
     await SupabaseService.initialize();
     print('DEBUG: Supabase initialized');
     
-    await NotificationService.initialize();
-    print('DEBUG: Notification service initialized');
+    await PusherBeamsService.initialize();
+    print('DEBUG: Firebase Messaging service initialized');
+    
+
+    // Set up notification channels and handlers
+    await _setupNotificationChannels();
+    await NotificationTestService.testForegroundNotificationHandling();
+    print('DEBUG: Notification handlers configured');
+    
+    await DeepLinkService.initialize();
+    print('DEBUG: Deep link service initialized');
     
     await HMSConsultationService.initialize();
     print('DEBUG: HMS service initialized');
-    
-    await IncomingCallService.initialize();
-    print('DEBUG: Incoming call service initialized');
     
     // Initialize and sync offline service
     final syncService = OfflineSyncService();
     await syncService.init();
     print('DEBUG: Offline sync initialized');
     
-    // Save FCM token after initialization (non-blocking)
-    NotificationService.saveTokenToDatabase().then((_) {
-      print('DEBUG: FCM token saved successfully');
-      // Test notification after token save
-      _testNotificationSetup();
-    }).catchError((e) {
-      print('DEBUG: FCM token save failed: $e');
-    });
-    
-    // Debug: Print FCM token
-    NotificationService.getToken().then((token) {
-      print('DEBUG: Current FCM token: ${token?.substring(0, 50)}...');
-    }).catchError((e) {
-      print('DEBUG: Failed to get FCM token: $e');
-    });
+    // Pusher Beams interests are managed automatically
     
     // Run consultation migration if needed (non-blocking)
     ConsultationMigrationService.runMigrationIfNeeded().catchError((e) {
@@ -70,30 +107,7 @@ void main() async {
   runApp(const MedVitaApp());
 }
 
-Future<void> _testNotificationSetup() async {
-  try {
-    final userId = LocalStorageService.getCurrentUserId();
-    if (userId != null) {
-      print('DEBUG: Testing notification setup for user: $userId');
-      
-      // Check if FCM token exists in database
-      final profile = await SupabaseService.client
-          .from('profiles')
-          .select('fcm_token, full_name')
-          .eq('id', userId)
-          .single();
-      
-      print('DEBUG: User profile: ${profile['full_name']}');
-      print('DEBUG: FCM token in DB: ${profile['fcm_token'] != null ? 'EXISTS' : 'MISSING'}');
-      
-      if (profile['fcm_token'] != null) {
-        print('DEBUG: FCM token preview: ${profile['fcm_token'].substring(0, 50)}...');
-      }
-    }
-  } catch (e) {
-    print('DEBUG: Test notification setup failed: $e');
-  }
-}
+
 
 class AuthChecker extends StatefulWidget {
   const AuthChecker({super.key});
@@ -173,8 +187,12 @@ class _AuthCheckerState extends State<AuthChecker> {
     // Valid session and matching local data
     print('DEBUG: Valid session found, role: ${localUser['role']}');
     
-    // FCM notifications will handle incoming calls
-    print('DEBUG: Using FCM notifications for incoming calls');
+    // Set up Pusher Beams for current user session
+    print('DEBUG: Setting up Pusher Beams for current session');
+    await PusherBeamsService.onUserLogin(supabaseUser.id);
+    
+    // Pusher Beams notifications will handle incoming calls
+    print('DEBUG: Using Pusher Beams notifications for incoming calls');
     
     if (mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

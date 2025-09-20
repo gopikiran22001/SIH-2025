@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
 import '../../services/local_storage_service.dart';
 import '../../services/offline_sync_service.dart';
+import '../../services/pusher_beams_service.dart';
 import '../../utils/app_router.dart';
 import '../../widgets/loading_overlay.dart';
 
@@ -324,6 +325,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (profile != null) {
           print('DEBUG: Saving complete profile: $profile');
           await LocalStorageService.saveCurrentUser(profile);
+          
+          // Set up Pusher Beams for logged in user
+          await PusherBeamsService.onUserLogin(response.user!.id);
           
           // Set patient online after successful login (doctors control their own status)
           if (profile['role'] == 'patient') {

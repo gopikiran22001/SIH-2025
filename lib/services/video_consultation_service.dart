@@ -41,7 +41,7 @@ class VideoConsultationService {
     try {
       final response = await SupabaseService.client
           .from('video_consultations')
-          .select('*, profiles!video_consultations_patient_id_fkey(*), profiles!video_consultations_doctor_id_fkey(*)')
+          .select('*')
           .or('patient_id.eq.$userId,doctor_id.eq.$userId')
           .eq('status', 'active')
           .maybeSingle();
